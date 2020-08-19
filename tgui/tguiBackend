@@ -1,0 +1,97 @@
+#!/usr/bin/python3
+
+from TGui import TGui
+
+import os, sys
+import time
+import pickle
+import argparse
+import traceback
+import signal
+
+import Config
+from Date import Date
+from Backend import Backend
+
+
+argp = argparse.ArgumentParser()
+
+argp.add_argument('-c', '--cleanup', action="store_true", help="clean up after a crash")
+argp.add_argument('-n', '--nodaemon', action="store_true", help="do not start as a daemon")
+argp.add_argument("arguments", nargs='*')
+
+opt = argp.parse_args(sys.argv[1:])
+
+if len(opt.arguments) == 0  and  not opt.cleanup:
+	sys.stderr.write("this script should not be run manually unless you know what you are doing\n")
+	sys.exit(2)
+
+tg = TGui(readOnly=False)
+
+if opt.cleanup:
+	tg.setPar("tguiBackend_pid", '')
+	sys.exit(0)
+
+def doStop(tg):
+	pid = tg.getPar("tguiBackend_pid")
+	if pid:
+		pid = int(pid)
+		try:
+			os.kill(pid, signal.SIGTERM)
+		except ProcessLookupError as e:
+			pass
+
+		time.sleep(5)
+
+		pids = [int(pid2) for pid2 in os.listdir('/proc') if pid2.isdigit()]
+		for pid2 in pids:
+			with open("/proc/{pid2}/comm".format(pid2=pid2)) as fp:
+				l = fp.readline()
+				l = l.strip()
+				l = os.path.basename(l)
+
+				if l != os.path.basename(sys.argv[0]): continue
+				if os.getpid() == int(pid2): continue
+				os.kill(int(pid2), signal.SIGTERM)
+
+arg = opt.arguments[0]
+if arg == 'start':
+	# normal operation: launch the daemon
+	pass
+elif arg == 'restart':
+	print("stopping...")
+	doStop(tg)
+	time.sleep(5)
+	print("starting...")
+elif arg == 'stop':
+	doStop(tg)
+	sys.exit(0)
+elif arg == 'status':
+	pid = tg.getPar("tguiBackend_pid")
+	if pid:
+		pid = int(pid)
+		print("running (pid={pid})".format(pid=pid))
+	else:
+		print("not running")
+	sys.exit(0)
+else:
+	sys.stderr.write("unknown command: {cmd}\n".format(cmd=arg))
+	sys.exit(3)
+
+# check if another instance is running
+otherPid = tg.getPar("tguiBackend_pid")
+if otherPid:
+	otherPid = int(otherPid)
+	sys.stderr.write("another instance of the backend is running (pid = {otherPid})\n".format(otherPid=otherPid))
+	sys.exit(0)
+
+if not opt.nodaemon:
+	pid = os.fork()
+	if pid:
+		# Terminate the parent process
+		sys.exit(0)
+
+# The code of the child (daemon)
+
+with Backend() as backend:
+	backend.runForever()

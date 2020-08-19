@@ -1,0 +1,66 @@
+<style>
+	.vol_table_header {
+		background-color: #EDF7FF;
+		font-weight: bold;
+		/*font-size: 90%;*/
+	}
+
+	.vol_table_row_even {
+		background-color: #FFF;
+	}
+
+	.vol_table_row_odd {
+		background-color: #F9F9F9;
+	}
+
+	.no_underline, .no_underline:hover {
+		text-decoration-line: none;
+	}
+
+	/*This will work in every browser but Chrome Browser ?*/
+	.table-fixed {
+		position: sticky;
+		position: -webkit-sticky;
+		top: 0;
+		z-index: 999;
+	}
+
+	.my_pre_scrollable {
+		overflow-y: auto;
+	}
+</style>
+
+<script>
+	var volumeGlobals = {
+		tableSortColumn: [1, 0],
+	}
+</script>
+
+<script src="js/volume.js"></script>
+
+<h2>Volume (24 Hours)</h2>
+
+<br>
+
+<div class="row">
+	<div class="col-sm-7">
+		<div id="volume_table_msg" class="alert alert-info">Loading...</div>
+	</div>
+	<div class="col-sm-4">
+		&nbsp;
+	</div>
+	<div class="col-sm-1 text-right">
+		&nbsp;
+	</div>
+</div>
+
+<br>
+
+<table id="volume_table_header" class="table table-bordered table-fixed"></table>
+<table id="volume_table" class="table table-bordered">
+	<tbody id="volume_table_body"></tbody>
+</table>
+
+<br>
+<br>
+<br>

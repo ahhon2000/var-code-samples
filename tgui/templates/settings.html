@@ -1,0 +1,67 @@
+<script src="js/settings.js"></script>
+
+<h2>Settings</h2>
+
+{% if g.error_messages %}
+	<br>
+	<br>
+	<div id="" class="alert alert-danger">
+		{% for m in g.error_messages %}
+			{{ m|safe }}
+			<br>
+		{% endfor %}
+	</div>
+{% endif %}
+
+{% if g.info_messages %}
+	<br>
+	<br>
+	<div id="" class="alert alert-info">
+		{% for m in g.info_messages %}
+			{{ m }}
+			<br>
+		{% endfor %}
+	</div>
+{% endif %}
+
+<br>
+<br>
+
+<div class="row">
+	<div class="col-sm-12">
+		<form method="POST">
+			<input type="hidden" name="restartBackend" value="true">
+			<input type="submit" class="btn btn-lg btn-warning" value="Restart Backend">
+		</form>
+	</div>
+
+</div>
+
+<br>
+<br>
+
+<form method="POST">
+	<div class="row">
+		<div class="col-sm-2">
+			<label>Default Price Depth:</label>
+		</div>
+		<div class="col-sm-3 text-right">
+			<input type="input" class="text-right" id="input_default_depth" name="default_price_depth" value="{{ g.default_price_depth }}" placeholder="depth" autocomplete="off"/>
+			%
+
+		</div>
+		<div class="col-sm-7">
+			&nbsp;
+		</div>
+	</div>
+	<br>
+	<br>
+	<div class="row">
+		<div class="col-sm-5 text-right">
+			<input type="submit" class="btn btn-lg btn-primary" value="Save Settings">
+		</div>
+		<div class="col-sm-7">
+			&nbsp;
+		</div>
+	</div>
+</form>

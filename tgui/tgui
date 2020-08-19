@@ -1,0 +1,191 @@
+#!/usr/bin/python3
+
+import flask
+import flask_cors
+from flask import Flask, render_template, request, g
+from flask import send_from_directory
+from flask import make_response
+import flask_sijax
+import uuid
+import datetime
+
+from gevent.pywsgi import WSGIServer
+from werkzeug.serving import run_with_reloader
+from werkzeug.debug import DebuggedApplication
+
+import sys
+import os
+import re
+from pathlib import Path
+
+from TGui import TGui
+import subprocess
+
+import Config as C
+from loggers import genLoggers
+
+# dict of Python modules (keys) and variants of their names within URI (values)
+modules = {
+	'orderbookLiquidity': ['orderbook_liquidity', 'home', ''],
+	'volume': ['volume'],
+	'funding': ['funding'],
+	'guiSettings': ['settings'],
+}
+
+def launchBackend(tg):
+	pid = None
+	if tg: pid = tg.getPar("tguiBackend_pid")
+
+	if not pid:
+		print("launching the backend")
+		beScr = ""
+		for bed in C.BACKEND_DIRS + [
+			os.path.abspath(os.path.dirname(sys.argv[0]))
+		]:
+			c = Path(bed) / "tguiBackend"
+			if c.exists():
+				beScr = str(c)
+				break
+
+		if not beScr: raise Exception("could not find the backend script")
+
+		#p = EasyPipe.Pipe([beScr, "start"])
+		p = subprocess.call([beScr, "start"])
+		#if p.status:
+		#	sys.stderr.write(p.stderr + "\n")
+		#	sys.stderr.flush()
+
+
+def initSessionCookie(app, tg):
+	sid = request.cookies.get('sessionId')
+	if sid is None:
+		sid = str(uuid.uuid4())
+		@flask.after_this_request
+		def setSessionCookie(rsp):
+			rsp.set_cookie("sessionId", sid,
+				expires = datetime.datetime.now() + datetime.timedelta(days=3650)
+			)
+			return rsp
+	tg.sessionId = sid
+
+
+(logMsg, logError, logWarning) = genLoggers("tgui.log")
+
+#launchBackend(None)
+logMsg("creating the Flask app object...")
+app = Flask(__name__)
+
+app.permanent_session_lifetime = datetime.timedelta(days=3650)
+app.debug = False
+app.secret_key = b"\x80\xbc\xffZ'>\xd7\x9a\xe8\x16F\x91\xb5\xfd$\t\x80\xe4;\x15gA\xf6l"
+
+flask_sijax.Sijax(app)
+flask_cors.CORS(app, resources = {
+	r'*': {
+		'origins': '*',
+		#'supports_credentials': True,
+	},
+})
+
+logMsg("configuring the app object...")
+
+@flask_sijax.route(app, '/', methods=['POST', 'GET'])
+@flask_sijax.route(app, '/<mod>', methods=['POST', 'GET'])
+def page(mod=""):
+	tg = TGui(readOnly=False)
+	#launchBackend(tg)
+	initSessionCookie(app, tg)
+
+	cnt = ""
+	pageTitle = ""
+	m = ""
+	try:
+		for mm in modules.keys():
+			if mod in modules[mm]:
+				m = mm
+				g.tgui_module_name = m
+				break
+
+		if not m: raise Exception("unavailable module `%s'" % (mod))
+		exec("import %s" % m)
+		rv = eval("%s.render(tg)" % m)
+		if isinstance(rv, (str)):
+			cnt = rv
+		else:
+			cnt = rv['content']
+			pageTitle = rv['pageTitle']
+		
+	except Exception as e:
+		if e.args:
+			cnt = "%s" % e.args[0]
+		else:
+			cnt = "%s" % e.__class__.__name__
+
+	if g.sijax.is_sijax_request:
+		# Ajax request
+		return g.sijax.process_request()
+	else:
+		# Ordinary request
+		g.bodyContent = cnt
+
+		if pageTitle:
+			g.pageTitle = "%s | Trading GUI" % (pageTitle)
+		elif m:
+			g.pageTitle = "%s | Trading GUI" % (m)
+		else:
+			g.pageTitle = "Trading GUI"
+
+		return render_template('index.html')
+
+@app.route('/js/<path:f>')
+def js(f):
+	if re.search(r'\.js$', f) or re.search(r'\.css$', f):
+		d = "%s/js/" % (C.dirTGui)
+		return send_from_directory(d, f)
+
+	raise Exception("js unavailable")
+
+@app.route('/img/<path:f>')
+def img(f):
+	d = "%s/img/" % (C.dirTGui)
+	return send_from_directory(d, f)
+
+@app.route('/bootstrap/<path:f>')
+def bootstrap(f):
+	d = "%s/bootstrap" % (C.dirTGui)
+	return send_from_directory(d, f)
+
+	raise Exception("file unavailable")
+
+@app.route('/bootstrap/js/<f>')
+def bs_js(f):
+	if not re.search(r'[/\\]', f):
+		d = "%s/bootstrap/js" % (C.dirTGui)
+		return send_from_directory(d, f)
+
+	raise Exception("js unavailable")
+
+@app.route('/bootstrap/fonts/<f>')
+def bs_fonts(f):
+	if not re.search(r'[/\\]', f):
+		d = "%s/bootstrap/fonts" % (C.dirTGui)
+		return send_from_directory(d, f)
+
+	raise Exception("fonts unavailable")
+
+logMsg("\tdone")
+
+if __name__ == "__main__":
+	app.debug = True
+
+	@run_with_reloader
+	def run_server():
+		global app
+		ws = DebuggedApplication(app)
+		ws = WSGIServer((C.LISTEN_ADDR, C.PORT), ws,
+			keyfile = str(Path(C.sslKeysDir) / 'key.pem'),
+			certfile = str(Path(C.sslKeysDir) / 'cert.pem'),
+		)
+		ws.serve_forever()
+
+	run_server()

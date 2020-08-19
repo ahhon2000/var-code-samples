@@ -1,0 +1,122 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from tstcommon import *
+from tstcommon import TstCommon
+import Config
+from Liquidity import Liquidity
+from Instrument import InstrumentFutures, InstrumentSwaps
+
+def doTest(ins, liq_j, customDepth, insCls):
+	# create and test a Liquidity object
+
+	l = Liquidity(ins, liq_j, customDepth=customDepth)
+	for d in ("asks", "bids"):
+		l._process_json(liq_j, d)
+
+	# check max depth
+	ensure(l.askm == sum(x[1] + x[2] for x in liq_j['asks']),
+		"wrong l.askm")
+	ensure(l.bidm == sum(x[1] + x[2] for x in liq_j['bids']),
+		"wrong l.askm")
+
+	# check custom depth, liquidated orders
+	for d in ("asks", "bids"):
+		rs = liq_j[d]
+		p0 = rs[0][0]
+
+		s = 0
+		actualDepth = 0
+		for r in rs:
+			p = r[0]
+			dp = abs(p - p0)
+			if dp / p0 * 100 > customDepth + 1e-10: break
+
+			actualDepth = dp / p0 * 100
+			s += r[1] + r[2]
+
+		if d == "asks":
+			ensure(s == l.ask, "s = {s}, l.ask = {ask}".format(s=s, ask=l.ask))
+		elif d == "bids":
+			ensure(s == l.bid, "s != l.bid")
+		else:
+			raise Exception("unkonwn direction")
+
+		# check actualDepth's
+		if d == "asks":
+			ensureFloat(actualDepth, l.actualDepthAsk, "actual depth")
+		elif d == "bids":
+			ensureFloat(actualDepth, l.actualDepthBid, "actual depth")
+
+		# check if actual depth is maxdepth when customDepth is too big
+		maxdepth = abs(p0 - rs[-1][0]) / p0 * 100  # max depth
+		ensure(maxdepth, "maxdepth = 0")
+		if customDepth > maxdepth + 1e-10:
+			if d == "asks":
+				ensureFloat(l.actualDepthAsk, maxdepth, "actual depth")
+				ensureFloat(l.actualDepthAskm, maxdepth, "actual depth")
+			elif d == "bids":
+				ensureFloat(l.actualDepthBid, maxdepth, "actual depth")
+				ensureFloat(l.actualDepthBidm, maxdepth, "actual depth")
+
+
+with TstCommon():
+	for liq_j in (
+		{
+			"asks": [
+				[1.000, 100, 0, 3],
+				[1.001, 100, 1, 1],
+				[1.002, 100, 0, 1],
+				[1.003, 100, 9, 1],
+				[1.004, 100, 100, 1],
+				[1.005, 100, 0, 8],
+			],
+			"bids": [
+				[1.000, 100, 0, 3],
+				[0.999, 100, 0, 1],
+				[0.998, 100, 0, 1],
+				[0.997, 100, 5, 2],
+				[0.996, 100, 7, 9],
+				[0.995, 100, 0, 1],
+			],
+		},
+		{
+			"bids": [
+				[1.000, 100, 0, 3],
+				[0.999, 100, 0, 1],
+				[0.998, 100, 0, 1],
+				[0.997, 100, 0, 2],
+				[0.996, 100, 0, 9],
+				[0.995, 100, 0, 1],
+			],
+			"asks": [
+				[1.000, 100, 0, 3],
+				[1.001, 100, 0, 1],
+				[1.002, 100, 1, 1],
+				[1.003, 100, 0, 1],
+				[1.004, 100, 0, 1],
+				[1.005, 100, 0, 8],
+			],
+		},
+	):
+		for customDepth in [0.2, 0.5, 0.8]:
+			for insCls in (InstrumentFutures, InstrumentSwaps):
+				# define an instrument
+				if insCls is InstrumentFutures:
+					ins_j = {
+						'instrument_id': 'ETH-USD-190628',
+						'delivery': '2019-06-28',
+						'alias': 'quarter',
+					}
+				elif insCls is InstrumentSwaps:
+					ins_j = {
+						'instrument_id': 'XRP-USD-SWAP',
+						'delivery': '2019-03-27T14:00:00.000Z',
+					}
+				else: raise Exception("unsupported class `{cn}'".format(cn=insCls.__name__))
+
+				ins = insCls(ins_j)
+
+				doTest(ins, liq_j, customDepth, insCls)

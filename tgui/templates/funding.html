@@ -1,0 +1,74 @@
+<style>
+	.fun_table_header {
+		background-color: #EDF7FF;
+		font-weight: bold;
+		/*font-size: 90%;*/
+	}
+
+	.fun_table_row_even {
+		background-color: #FFF;
+	}
+
+	.fun_table_row_odd {
+		background-color: #F9F9F9;
+	}
+
+	.no_underline, .no_underline:hover {
+		text-decoration-line: none;
+	}
+
+	.fun_value_positive {
+		color: red;
+	}
+
+	.fun_value_negative {
+		color: green;
+	}
+
+	/*This will work in every browser but Chrome Browser ?*/
+	.table-fixed {
+		position: sticky;
+		position: -webkit-sticky;
+		top: 0;
+		z-index: 999;
+	}
+
+	.my_pre_scrollable {
+		overflow-y: auto;
+	}
+</style>
+
+<script>
+	var fundingGlobals = {
+		tableSortColumn: [1, 0],
+	};
+</script>
+
+<script src="js/funding.js"></script>
+
+<h2>Funding Rates</h2>
+
+<br>
+
+<div class="row">
+	<div class="col-sm-7">
+		<div id="funding_table_msg" class="alert alert-info">Loading...</div>
+	</div>
+	<div class="col-sm-4">
+		&nbsp;
+	</div>
+	<div class="col-sm-1 text-right">
+		&nbsp;
+	</div>
+</div>
+
+<br>
+
+<table id="funding_table_header" class="table table-bordered table-fixed"></table>
+<table id="funding_table" class="table table-bordered">
+	<tbody id="funding_table_body"></tbody>
+</table>
+
+<br>
+<br>
+<br>

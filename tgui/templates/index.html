@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+	<script src="js/jquery.js"></script>
+	<script src="js/sijax.js"></script>
+	<script src="js/popper.min.js"></script>
+	<script src="js/index.js"></script>
+	<script> {{ g.sijax.get_js()|safe }} </script>
+	<title>{{ g.pageTitle }}</title>
+
+	<link rel="shortcut icon" href="img/favicon.ico">
+
+  <!-- Bootstrap core CSS -->
+  <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+	<link href="bootstrap/css/bootstrap-glyphicons.css" rel="stylesheet">
+</head>
+
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark static-top">
+    <div class="container">
+      <a class="navbar-brand" href="/">NBP
+<br><small><i>Main GUI</i></small></a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarResponsive">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item {{ 'active' if g.tgui_module_name == 'orderbookLiquidity' else '' }}">
+            <a class="nav-link" href="orderbook_liquidity">Orderbook Liquidity</a>
+          </li>
+          <li class="nav-item {{ 'active' if g.tgui_module_name == 'volume' else '' }}">
+            <a class="nav-link" href="volume">Volume</a>
+          </li>
+          <li class="nav-item {{ 'active' if g.tgui_module_name == 'funding' else '' }}">
+            <a class="nav-link" href="funding">Funding Rates</a>
+          </li>
+	<p class="navbar-text">&nbsp;&nbsp;&nbsp;</p>
+          <li class="nav-item {{ 'active' if g.tgui_module_name == 'guiSettings' else '' }}">
+            <a class="nav-link" href="settings">Settings</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Page Content -->
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-12 text-center">
+	&nbsp;
+	<!-- <h1 class="mt-5">Trading GUI</h1> -->
+      </div>
+      <div class="col-lg-12">
+	<br>
+
+	{{ g.bodyContent|safe }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src="js/jquery.js"></script>
+  <script src="bootstrap/js/bootstrap.min.js"></script>
+</body>
+</html>

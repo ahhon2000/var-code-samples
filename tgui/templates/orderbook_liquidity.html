@@ -1,0 +1,187 @@
+
+<style>
+	#exchange_list_id {
+		width: 100%;
+	}
+
+	.liq_table_header {
+		background-color: #EDF7FF;
+		font-weight: bold;
+		/*font-size: 90%;*/
+	}
+
+	.liq_table_row_even {
+		background-color: #FFF;
+	}
+
+	.liq_table_row_odd {
+		background-color: #F9F9F9;
+	}
+
+	.btn_group_contracts {
+		padding-left: 0;
+	}
+
+	.dropdown_avg_int_ul {
+		background-color: #F3F2F1;
+		padding: 5px 5px 5px 5px;
+	}
+
+	.no_underline, .no_underline:hover {
+		text-decoration-line: none;
+	}
+
+	/*This will work in every browser but Chrome Browser ?*/
+	.table-fixed {
+		position: sticky;
+		position: -webkit-sticky;
+		top: 0;
+		z-index: 999;
+	}
+
+	.my_pre_scrollable {
+		overflow-y: auto;
+	}
+
+
+</style>
+
+<script>
+	var orderbookGlobals = {
+		exchange: '{{ g.default_exchange }}',
+		liquidityFor: "all",
+		viewType: "table",
+		avgInterval1: {{ g.default_avg_interval1 }},
+		avgInterval2: {{ g.default_avg_interval2 }},
+		customDepth0: {{ g.default_price_depth }},
+		customDepth1: {{ g.default_price_depth }},
+		customDepth2: {{ g.default_price_depth }},
+		mainChart: undefined,
+		tableSortColumn: [1, 0],
+		graphInstrumentAll : "",
+		graphInstrumentFutures: "",
+		graphInstrumentSwaps: "",
+		graphTRange: {{ g.default_graph_time_range }},
+		graphCustomDepth: {{ g.default_price_depth }},
+		allInstruments: [], // to be used in the graph view
+		allViewTypes: ['table', 'graph'],
+		allContracts: ['all', 'futures', 'swaps'],
+		allExchanges: [
+			{% for ex in g.tgui.exchanges %}
+				"{{ ex.name }}",
+			{% endfor %}
+		],
+	};
+</script>
+<script src="js/orderbook_liquidity_graphs.js"></script>
+<script src="js/orderbook_liquidity.js"></script>
+
+<h2>Orderbook Liquidity</h2>
+
+<br>
+
+<div class="row">
+	<div class="col-sm-7">
+		<div id="liquidity_table_msg" class="alert alert-info">Loading...</div>
+	</div>
+	<div class="col-sm-3">
+		&nbsp;
+	</div>
+	<div class="col-sm-2 text-right">
+		<button type="button" class="btn btn-primary btn-lg" onclick="updateView();">Update</button>
+	</div>
+</div>
+
+<br>
+
+<div class="row">
+	<div class="col-sm-2">
+
+		<div class="form-group form-inline">
+			<select class="form-control" id="exchange_list_id" onchange="switchExchange();" title="Exchange (F2, Ctrl+F2 to toggle)">
+				{% for ex in g.tgui.exchanges %}
+					{% set sel = '' %}
+					{% if g.default_exchange.lower() == ex.name.lower() %}
+						{% set sel = 'selected="true"' %}
+					{% endif %}
+					<option value="{{ ex.name }}" {{ sel }}>
+						{{ ex.name }}
+					</option>
+				{% endfor %}
+			</select>
+		</div>
+	</div>
+	<div class="col-sm-5">
+		&nbsp;
+	</div>
+	<div class="col-sm-3">
+		<ul class="btn-group text-left btn-group-lg btn_group_contracts">
+			<button type="button" id="btn_contracts_all" class="btn btn-primary active" onclick="selectContracts('all')" title="All Contracts (F9, Ctrl+F9 to toggle)">All Contracts</button>
+			<button type="button" id="btn_contracts_futures" class="btn btn-link" onclick="selectContracts('futures')" title="Futures (F9, Ctrl+F9 to toggle)">Futures</button>
+			<button type="button" id="btn_contracts_swaps" class="btn btn-link" onclick="selectContracts('swaps')" title="Swaps (F9, Ctrl+F9 to toggle)">Swaps</button>
+		</ul>
+	</div>
+	<div class="col-sm-2 text-right">
+		<ul class="btn-group text-right btn-group-lg btn_group_contracts">
+			<button type="button" id="btn_view_table" class="btn btn-primary active" onclick="selectView('table')" title="Table View (F8, Ctrl+F8 or F10, Ctrl+F10 to toggle)">
+				<span class="glyphicon glyphicon-list"></span>
+			</button>
+			<button type="button" id="btn_view_graph" class="btn btn-link" onclick="selectView('graph')" title="Chart View (F8, Ctrl+F8 or F10, Ctrl+F10 to toggle)">
+				<span class="glyphicon glyphicon-stats"></span>
+			</button>
+		</ul>
+	</div>
+</div>
+
+<table id="liquidity_table_header" class="table table-bordered table-fixed"></table>
+<table id="liquidity_table" class="table table-bordered">
+	<tbody id="liquidity_table_body"></tbody>
+</table>
+
+<div id="liquidity_graph" style="display: none;">
+	<br>
+	<div class="row">
+		<div class="col-sm-2" id="liquidity_graph_instruments" class="text-left">
+			&nbsp;
+		</div>
+		<div class="col-sm-10">
+			<canvas id="liquidity_graph_canvas"></canvas>
+
+			<br>
+			<div class="row">
+				<div class="col-sm-6">
+					<ul class="btn-group text-center btn-group-lg">
+						<button type="button" id="btn_trange_5m" class="btn btn-link" onclick="switchTRange(5)">5m</button>
+						<button type="button" id="btn_trange_60m" class="btn btn-primary active" onclick="switchTRange(60)">60m</button>
+						<button type="button" id="btn_trange_240m" class="btn btn-link" onclick="switchTRange(240)">240m</button>
+					</ul>
+				</div>
+				<div class="col-sm-6 text-right">
+					<form onsubmit="switchTRange(); return false;">
+						<label>Custom Scale:</label>
+						<input type="input" class="text-right" id="input_custom_trange" value="" placeholder="minutes" autocomplete="off"/>
+						<input type="submit" class="btn btn-lg btn-primary" value="Apply">
+					</form>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-sm-6">
+					&nbsp;
+				</div>
+				<div class="col-sm-6 text-right">
+					<form onsubmit="setGraphDepth(); return false">
+						<label>Custom Depth:</label>
+						<input id="set_graph_depth_input" type="text" placeholder="%" class="text-right" value="" autocomplete="off"/>
+						<input type="submit" class="btn btn-lg btn-primary" value="Apply">
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+</div>
+
+<br>
+<br>
+<br>
