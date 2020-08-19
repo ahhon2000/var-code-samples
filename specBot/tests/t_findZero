@@ -1,0 +1,33 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from defs import findZero
+
+def f1(par, x):
+	return x
+
+def f2(par, x):
+	return x**3
+
+def f3(par, x):
+	return x - 5
+
+def f4(par, x):
+	return (x + 5)
+
+p = None
+for f in [f1, f2, f3, f4]:
+	(x, y) = findZero(f, p, -8, 10)
+
+	if x is None  or  y is None: raise Exception("findZero() failed to find a solution")
+	if abs(y - f(p, x)) > 1e-9: raise Exception("findZero() found an inaccurate solution: x=%f; y=%f" % (x, y))
+
+def f(par, x):
+	return x**2 + 1
+
+(x, y) = findZero(f, p, -10, 10)
+
+if not(x is None and y is None):
+	raise Exception("findZero() did not return (None, None)")

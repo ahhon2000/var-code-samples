@@ -1,0 +1,27 @@
+#!/bin/bash
+
+d="`dirname "$0"`"
+
+failed=()
+
+pushd "$d" > /dev/null
+for t in t_*; do
+	echo "running  $t"
+	./"$t" > /dev/null
+	if [ $? -ne 0 ]; then
+		failed[${#failed[@]}]="$t"
+	fi
+done
+popd > /dev/null
+
+nf=${#failed[@]}
+
+echo
+if [ "$nf" -ne 0 ]; then
+	echo "The following $nf tests failed:"
+	for t in "${failed[@]}"; do
+		echo -e "\t$t"
+	done
+else
+	echo "All tests passed"
+fi

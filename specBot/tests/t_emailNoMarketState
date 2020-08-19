@@ -1,0 +1,125 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+from Date import Date
+from Transaction import Transaction
+import Config
+import tstcommon
+from tstcommon import *
+from WgetTst import WgetTst
+import time
+import re
+
+# Check if _email*() functions work
+
+with TstCommon():
+	sb = SpecBot(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst(),
+	)
+
+	sb._emailNoMarketState(send=False, stdout=True)
+	sb._emailFixedNoMarketState(send=False, stdout=True)
+
+
+# Check if no email is sent if everything's ok
+
+with TstCommon():
+	class SpecBotTst(SpecBot):
+		def sendEmail(self, subject, body, continueOnFailure=True):
+			raise Exception("sendEmail() should not have been called")
+
+	sb = SpecBotTst(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst(),
+	)
+	for i in range(3):
+		sb._notifyFixedNoMarketState()
+
+# Check if email is sent on market state download failure.
+# Check the interval between such notifications.
+
+with TstCommon():
+	class SpecBotTst(SpecBot):
+		def sendEmail(self, subject, body, continueOnFailure=True):
+			self._nEmails += 1
+
+	sb = SpecBotTst(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst(),
+	)
+
+	Config.NO_MS_NOTIF_INTERVAL = 2/3600
+
+	sb._nEmails = 0
+	for i in range(6):
+		sb._notifyNoMarketState()
+		time.sleep(0.5)
+
+	ensure(sb._nEmails == 2, "sendEmail() should have been triggered twice but it was triggered %d times" % (sb._nEmails))
+
+	# Check if the no-market-state condition is reset
+
+	sb._notifyFixedNoMarketState()
+
+	sb._nEmails = 0
+	for i in range(6):
+		sb._notifyNoMarketState()
+		time.sleep(0.5)
+
+	ensure(sb._nEmails == 2, "sendEmail() should have been triggered twice but it was triggered %d times" % (sb._nEmails))
+
+# Check if SpecBot.cycle sends a notification on failure
+
+with TstCommon():
+	class SpecBotTst(SpecBot):
+		def sendEmail(self, subject, body, continueOnFailure=True):
+			if re.search(r'fail', subject, flags=re.IGNORECASE):
+				self._nEmails += 1
+
+	class WgetTst2(WgetTst):
+		def run(self, cmd):
+			return 1
+
+	Config.CURRENCY1 = "USD"
+	Config.CURRENCY2 = "RUB"
+	Config.PURSE1 = "Z123"
+	Config.PURSE2 = "R123"
+
+	sb = SpecBotTst(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst2(),
+	)
+
+	sb._nEmails = 0
+	sb.cycle()
+	ensure(sb._nEmails == 1, "sb.cycle() did not make sendEmail() to send 1 email (%d emails sent)" % sb._nEmails)
+
+	# Check if no email is sent if ban_protection triggered
+
+	sb._nEmails = 0
+	sb.cycle()
+	ensure(sb._nEmails == 0, "sb.cycle() triggered an email on ban protection timeout (%d emails sent)" % sb._nEmails)

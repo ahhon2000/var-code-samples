@@ -1,0 +1,81 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+from SpecBot import SpecBot
+from Transaction import Transaction
+import Config
+import tstcommon
+from tstcommon import TstCommon
+from WgetTst import WgetTst
+from defs import *
+import defs
+from Date import Date
+
+def doTest():
+	sb = SpecBot(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst(),
+	)
+
+	Config.MAXIMUM_AMOUNT1 = 0
+	Config.INITIAL_AMOUNT1 = 0
+	failed = True
+	try: a = sb.getAmountToTrade()
+	except: failed = False
+	if failed: raise Exception("MAXIMUM_AMOUNT1 and INITIAL_AMOUNT1 are allowed to be zeros")
+	sb.setPar("initial_amount1", "")
+
+	Config.MAXIMUM_AMOUNT1 = 10000
+	Config.INITIAL_AMOUNT1 = 20000
+	a = sb.getAmountToTrade()
+	if abs(Config.MAXIMUM_AMOUNT1 - a) > 1e-10:
+		raise Exception("getAmountToTrade() returned a value > MAXIMUM_AMOUNT1")
+
+	ia = sb.getPar("initial_amount1")
+	if not ia  or  abs(float(ia) - Config.INITIAL_AMOUNT1) > 1e-10:
+		raise Exception("initial_amount1 was not saved to the database appropriately")
+
+	Config.MAXIMUM_AMOUNT1 = 20000
+	Config.INITIAL_AMOUNT1 = 10000
+	t = Transaction(sb,
+		status = defs.TRST_CLOSED2,
+		curPair = sb.curPair,
+	)
+	t.remainder1 = 12000
+	t.date2closed = Date("now")
+	t.save()
+	#
+	t = Transaction(sb,
+		status = defs.TRST_CLOSED2,
+		curPair = sb.curPair,
+	)
+	t.remainder1 = 11000
+	t.date2closed = Date("now").plusHours(-24)
+	t.save()
+	#
+	a = sb.getAmountToTrade()
+	if abs(a - 12000) > 1e-10:
+		raise Exception("getAmountToTrade() did not use the last transaction's remainder1")
+
+	# test the situation when INITIAL_AMOUNT1 = 0, MAXIMUM_AMOUNT1 != 0
+
+	sb.setPar("initial_amount1", "")
+	Config.MAXIMUM_AMOUNT1 = 10000
+	Config.INITIAL_AMOUNT1 = 0
+	a = sb.getAmountToTrade()
+	if abs(a - 10000) > 1e-10: raise Exception("getAmountToTrade() returned the wrong value")
+
+	ia = sb.getPar("initial_amount1")
+	if not ia  or  abs(float(ia) - 10000): raise Exception("getAmountToTrade() saved the wrong value of initial_amount1")
+
+
+for fmt in [Config.DBF_SQLITE3, Config.DBF_MARIADB]:
+	Config.DB_FORMAT = fmt
+	with TstCommon():
+		doTest()

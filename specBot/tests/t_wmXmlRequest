@@ -1,0 +1,176 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+from Transaction import Transaction
+import Config
+from defs import *
+import defs
+from tstcommon import *
+import xml.etree.ElementTree as ET
+
+from Date import Date
+import tstcommon
+from tstcommon import TstCommon
+from WgetTst import WgetTst
+
+
+class SpecBotTst(SpecBot):
+	def sendEmail(self, subject, body, continueOnFailure=True):
+		pass
+
+
+def tst():
+	sb = SpecBotTst(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst(default=False),
+	)
+
+	qfn = TST_TMP_DIR + "/.specBotRequest.xml"
+	wget = sb.wget
+	wget.marketBids = {
+		'direct': [
+			{'tid': '1', 'amount': 100, 'rate': 58,},
+			{'tid': '2', 'amount': 100, 'rate': 59,},
+			{'tid': '3', 'amount': 100, 'rate': 60,},
+			{'tid': '4', 'amount': 100, 'rate': 61,},
+			{'tid': '5', 'amount': 100, 'rate': 62,},
+		],
+		'reverse': [
+			{'tid': '6', 'amount': 6000, 'rate': 57,},
+			{'tid': '7', 'amount': 6000, 'rate': 56,},
+			{'tid': '8', 'amount': 6000, 'rate': 55,},
+			{'tid': '9', 'amount': 6000, 'rate': 54,},
+			{'tid': '10', 'amount': 6000, 'rate': 53,},
+		],
+	}
+
+	sb.updateMarketState()
+
+	# Test direct placeBid
+
+	am = 12000.19
+	r1 = 59.5
+
+	t = Transaction(sb,
+		amount = am,
+		rate1 = r1,
+		curPair = sb.curPair,
+	)
+	t.placeBid(deleteTmpFiles=False)
+
+	req = ""
+	with open(qfn) as fp:
+		req = "".join(fp.readlines())
+	xml = ET.fromstring(req)
+
+	ensure(not(xml is None), "xml is None")
+	ensure(xml.tag == 'wm.exchanger.request', "wrong outer tag")
+
+	ip = xml.find('inpurse')
+	op = xml.find('outpurse')
+	ia = xml.find('inamount')
+	oa = xml.find('outamount')
+	for x in (ip, op, ia, oa):
+		ensure(not(x is None), "an important xml tag missing")
+
+	ensure(ip.text == Config.PURSE1, "inpurse is wrong")
+	ensure(op.text == Config.PURSE2, "outpurse is wrong")
+	ensureFloat(float(ia.text), t.remainder1, "incorrectly set inamount")
+	ensure("%.2f" % float(oa.text) == "%.2f" % (t.rate1 * t.remainder1),
+		"incorrectly set outamount")
+
+	# Test reverse placeBid
+
+	r2 = 55.3
+
+	t.status = TRST_CLOSED1
+	t.remainder2 = t.remainder1 * r1
+	t.remainder1 = 0
+	t.rate2 = r2
+
+	t.placeBid(reverse=True, deleteTmpFiles=False)
+
+	req = ""
+	with open(qfn) as fp:
+		req = "".join(fp.readlines())
+	xml = ET.fromstring(req)
+
+	ensure(not(xml is None), "xml is None")
+	ensure(xml.tag == 'wm.exchanger.request', "wrong outer tag")
+
+	ip = xml.find('inpurse')
+	op = xml.find('outpurse')
+	ia = xml.find('inamount')
+	oa = xml.find('outamount')
+	for x in (ip, op, ia, oa):
+		ensure(not(x is None), "an important xml tag missing")
+
+	ensure(ip.text == Config.PURSE2, "inpurse is wrong")
+	ensure(op.text == Config.PURSE1, "outpurse is wrong")
+	ensure("%.2f" % float(ia.text) == "%.2f" % t.remainder2, "incorrectly set inamount: %s instead of %.2f" % (ia.text, t.remainder2))
+	ensure("%.2f" % float(oa.text) == "%.2f" % (t.rate2 * t.remainder2),
+		"incorrectly set outamount")
+
+	# Test direct uploadRate()
+
+	t.status = TRST_OPEN1
+	r1 = 60.93
+	t.rate1 = r1
+	t.uploadRate(deleteTmpFiles=False)
+
+	req = ""
+	with open(qfn) as fp:
+		req = "".join(fp.readlines())
+	xml = ET.fromstring(req)
+
+	ensure(not(xml is None), "xml is None")
+	ensure(xml.tag == 'wm.exchanger.request', "wrong outer tag")
+
+	operid = xml.find('operid')
+	curstype = xml.find('curstype')
+	cursamount = xml.find('cursamount')
+
+	ensure(operid.text == t.wm_tid1, "wrong operid")
+	ensure(curstype.text == '1', "wrong curstype")
+	ensure(float(cursamount.text) > 1, "cursamount should be > 1")
+	ensure("%.4f" % float(cursamount.text) == "%.4f" % t.rate1, "cursamount tag's text is wrong")
+
+	# Test reverse uploadRate()
+
+	t.status = TRST_OPEN2
+	r2 = 1 / 54.16
+	t.rate2 = r2
+	t.uploadRate(deleteTmpFiles=False)
+
+	req = ""
+	with open(qfn) as fp:
+		req = "".join(fp.readlines())
+	xml = ET.fromstring(req)
+
+	ensure(not(xml is None), "xml is None")
+	ensure(xml.tag == 'wm.exchanger.request', "wrong outer tag")
+
+	operid = xml.find('operid')
+	curstype = xml.find('curstype')
+	cursamount = xml.find('cursamount')
+
+	ensure(operid.text == t.wm_tid2, "wrong operid")
+	ensure(curstype.text == '0', "wrong curstype")
+	ensure(float(cursamount.text) > 1, "cursamount should be > 1")
+	ensure("%.4f" % float(cursamount.text) == "%.4f" % (1 / t.rate2), "cursamount tag's text is wrong")
+
+
+for mssrc in range(len(Config.MSSRC)):
+	Config.MARKETSTATE_SOURCE = mssrc
+	for fmt in [Config.DBF_SQLITE3, Config.DBF_MARIADB]:
+		Config.DB_FORMAT = fmt
+		with TstCommon():
+			tst()

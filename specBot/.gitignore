@@ -1,0 +1,10 @@
+*.pickle
+*.db
+*.log
+*.out
+*.bz2
+__pycache__
+mail_pw
+tmp
+*.tmp
+tmp.*

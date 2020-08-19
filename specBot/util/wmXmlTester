@@ -1,0 +1,27 @@
+#!/usr/bin/python3
+
+
+import sys, os
+from Config import *
+from Transaction import Transaction
+
+sys.path = [".", ".."] + sys.path
+
+from SpectBot import SpecBot
+
+sb = SpecBot(
+)
+
+sb = SpecBot(
+	dbFile = DB_FILE,
+	currency1str = "USD",
+	currency2str = "RUB",
+)
+
+am = 10
+
+t = Transaction(
+	specBot = sb,
+	amount = am,
+	curPair = sb.curPair,
+)

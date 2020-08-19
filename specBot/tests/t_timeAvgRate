@@ -1,0 +1,188 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+from Date import Date
+from Transaction import Transaction
+from MarketState import MarketState
+from Bid import Bid
+import Config
+import tstcommon
+from tstcommon import *
+from WgetTst import WgetTst
+import time
+import re
+from math import exp
+
+class SpecBot2(SpecBot):
+	def sendEmail(self, subject, body, continueOnFailure=True):
+		pass
+
+
+	def updateMarketState(self):
+		SpecBot.updateMarketState(self)
+
+		ms = self.marketState
+		if ms:
+			if '_marketStateDateShift' not in self.__dict__.keys():
+				self._marketStateDateShift = 2
+
+			ms.date = ms.date.plusHours(-self._marketStateDateShift/3600)
+			self._marketStateDateShift += 2
+
+			ms.save()
+
+Config.CURRENCY1 = "USD"
+Config.CURRENCY2 = "RUB"
+Config.PURSE1 = "Z123"
+Config.PURSE2 = "R123"
+
+with TstCommon():
+	Config.RATE_AVG_HOURS = 1
+	sb = SpecBot2(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst(),
+	)
+
+	# Check if timeAvgRates() fails if there are no marketstates
+
+	cp = sb.curPair
+	cpr = cp.reverse()
+
+	for x in (cp, cpr):
+		failed = False
+		try:
+			tar = sb.timeAvgRates(recalculate=True)[x]
+		except: failed = True
+		ensure(failed, "timeAvgRates() did not fail when there were no marketstates")
+
+	# Check timeAvgRates() on 1 marketstate in the DB
+
+	sb.updateMarketState()
+	tar1 = sb.timeAvgRates(recalculate=True)[cp]
+	tar2 = sb.timeAvgRates(recalculate=True)[cpr]
+	ms = sb.marketState
+
+	ensureFloat(tar1, ms.avgRates[cp], "tar1 != ar1")
+	ensureFloat(tar2, ms.avgRates[cpr], "tar2 != ar2")
+
+	# Check timeAvgRates() on 2 marketstates in the DB
+
+	ms.date = ms.date.plusHours(-3/60)
+	ms.save()
+	sb.setPar('lastMarketstateDownloadDate', '')
+	sb.updateMarketState()
+	tar1 = sb.timeAvgRates(recalculate=True)[cp]
+	tar2 = sb.timeAvgRates(recalculate=True)[cpr]
+	ms = sb.marketState
+
+	rows = sb.execute("SELECT * FROM marketstates")
+	ensure(len(rows) == 2, "a second marketstate was not added to the DB")
+
+	ensureFloat(tar1, ms.avgRates[cp], "tar1 != ar1")
+	ensureFloat(tar2, ms.avgRates[cpr], "tar2 != ar2")
+
+	# Check timeAvgRates() on multiple marketstates
+
+	sb.execute("DELETE FROM bids")
+	sb.execute("DELETE FROM marketstates")
+	d0 = Date("now")
+	a1 = 100
+	tar1t = 0
+	tar2t = 0
+	N = 10
+	Navg = 0
+	for i in range(N):
+		t = -10/60 * i
+		d = d0.plusHours(t)
+		
+		r1 = 1 + 1 / (i + 1)
+		r2 = 1 + 1 / (i + 1) ** 2
+		r2 = 1 / r2
+
+		if i < 6:
+			r1n = 1 + 1 / (i + 2)
+			r2n = 1 + 1 / (i + 2) ** 2
+			r2n = 1 / r2n
+
+			tar1t += (r1 + r1n) / 2
+			tar2t += (r2 + r2n) / 2
+			Navg = i + 1
+
+		# prepare marketstates and fix bids
+
+		sb.setPar('lastMarketstateDownloadDate', '')
+		ms = MarketState(sb, date = d)
+
+		a2 = a1 * r1
+		for p in range(1, Config.MAX_PLACE_FOR_WEIGHING+1):
+			b = Bid(sb,
+				curPair = cp,
+				marketState = ms,
+				amount1 = a1,
+				amount2 = a2,
+				place = p,
+			)
+			ms.bids += [b]
+		a2 = a1 / r2
+		for p in range(1, Config.MAX_PLACE_FOR_WEIGHING+1):
+			b = Bid(sb,
+				marketState = ms,
+				curPair = cpr,
+				amount1 = a2,
+				amount2 = a1,
+				place = p,
+			)
+			ms.bids += [b]
+		ms.save()
+
+	tar1t /= Navg
+	tar2t /= Navg
+	tar1 = sb.timeAvgRates(recalculate=True)[cp]
+	tar2 = sb.timeAvgRates(recalculate=True)[cpr]
+
+	ensureFloat(tar1, tar1t, "incorrectly calculated tar1=%.4f (should be %.4f)" % (tar1, tar1t))
+	ensureFloat(tar2, tar2t, "incorrectly calculated tar2=%.4f; (should be %.4f)" % (tar2, tar2t))
+
+	# check the state machine with recalculate=False (default)
+
+	tar1_2 = sb.timeAvgRates()[cp]
+	tar2_2 = sb.timeAvgRates()[cpr]
+	ensureFloat(tar1, tar1_2, "the state machine timeAvgRates() did not work for %s" % (cp))
+	ensureFloat(tar2, tar2_2, "the state machine timeAvgRates() did not work for %s" % (cpr))
+
+	# Check if timeAvgRates is recalculated after a cycle
+
+	sb.wget = WgetTst(default=False)
+	sb.wget.marketBids = {
+		'direct': [
+			{'tid': '1', 'amount': 100, 'rate': 58,},
+			{'tid': '2', 'amount': 100, 'rate': 59,},
+			{'tid': '3', 'amount': 100, 'rate': 60,},
+			{'tid': '4', 'amount': 100, 'rate': 61,},
+			{'tid': '5', 'amount': 100, 'rate': 62,},
+		],
+		'reverse': [
+			{'tid': '6', 'amount': 6000, 'rate': 57,},
+			{'tid': '7', 'amount': 6000, 'rate': 56,},
+			{'tid': '8', 'amount': 6000, 'rate': 55,},
+			{'tid': '9', 'amount': 6000, 'rate': 54,},
+			{'tid': '10', 'amount': 6000, 'rate': 53,},
+		],
+	}
+	sb.setPar('lastMarketstateDownloadDate', '')
+	sb.cycle()
+
+	tar1_2 = sb.timeAvgRates()[cp]
+	tar2_2 = sb.timeAvgRates()[cpr]
+
+	ensure(abs(tar1 - tar1_2) > 1e-10, "cycle() did not trigger timeAvgRate() recalculation for %s; tar1=%.9f; tar1_2=%.9f, dtar = %.10f" % (\
+		cp, tar1, tar1_2, tar1 - tar1_2))
+	ensure(abs(tar2 - tar2_2) > 1e-10, "cycle() did not trigger timeAvgRate() recalculation for %s" % cpr)

@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# USAGE: pk12_to_pem INPUT_FILE.p12
+
+set -u
+
+bn="`basename "$1" .p12`"
+keyFile="$bn.key"
+pemFile="$bn.pem"
+
+if [ -e "$keyFile" ]; then
+	echo "$keyFile exists" >&2
+	exit 1
+fi
+if [ -e "$pemFile" ]; then
+	echo "$keyFile exists" >&2
+	exit 1
+fi
+
+openssl pkcs12 -in "$1" -nocerts -nodes -out "$keyFile"
+openssl pkcs12 -in "$1" -clcerts -nokeys -out "$pemFile"
+
+chmod 400 "$keyFile" "$pemFile"

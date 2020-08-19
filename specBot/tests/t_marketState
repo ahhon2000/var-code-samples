@@ -1,0 +1,221 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+from Transaction import Transaction
+from Config import *
+import Config
+from defs import *
+import tstcommon
+from tstcommon import TstCommon
+from tstcommon import *
+from WgetTst import WgetTst
+import MarketState
+import Wget
+
+class WgetTst2:
+	def run(self, cmd):
+		fn = ""
+		for i in range(len(cmd)):
+			if cmd[i] == "-O":
+				fn = cmd[i+1]
+				break
+
+		mssrc = Config.MARKETSTATE_SOURCE
+
+		urls = None
+		if mssrc == Config.MSSRC_HTML:
+			urls = MarketState.URLS_HTML
+		elif mssrc == Config.MSSRC_XML:
+			urls = MarketState.URLS_XML
+		else: raise Exception("unpredicted value of mssrc")
+
+		with open(fn, "w") as fp:
+			s = ""
+			lnk = cmd[-1]
+			if urls['USD,RUB'] == lnk and mssrc == Config.MSSRC_HTML:
+				s = """
+<TABLE  class="bidsList" width=100% border="0" cellpadding="3" cellspacing="1">
+<tr align="center">
+ 
+<td title="" align='center'   >Номер <BR />заявки</td>
+<td title="" align='center'   >Есть сумма <BR />WMZ</td>
+<td title="" align='center'   >Нужна сумма <BR />WMR</td>
+<td title="" align='center'   >Прямой курс <BR />(WMZ/WMR)</td>
+<td title="" align='center'   >Обратный курс <BR />(WMR/WMZ)</td>
+<td title="" align='center'   >Всего сумма <BR />WMZ (*)</td>
+<td title="" align='center'   >Всего сумма <BR />WMR (*)</td>
+<td title="" align='center'   >Дата подачи</td>
+</tr>
+
+
+
+<tr    onclick="document.location = 'wmquerysnew.asp?refID=26200929&deststamp=81'" title="Для перехода к просмотру нажмите левую кнопку мыши." >
+
+	<td align='center'   >26200929</td>
+	<td align='right'   >200</td>
+	<td align='right'   >12000</td>
+	<td align='right'   >0,0164</td>
+	<td align='right'   >60,8997&nbsp;&nbsp;(+0,25%)</td>
+	<td align='right'   >32283,73</td>
+	<td align='right'   >1966072,70</td>
+	<td align='right'   >04.08.2017 20:39:22</td>
+
+</tr>
+
+<tr    onclick="document.location = 'wmquerysnew.asp?refID=26200929&deststamp=81'" title="Для перехода к просмотру нажмите левую кнопку мыши." >
+	<td align='center'   >666</td>
+	<td align='right'   >150</td>
+	<td align='right'   >3000</td>
+	<td align='right'   >0,0164</td>
+	<td align='right'   >60,8997&nbsp;&nbsp;(+0,25%)</td>
+	<td align='right'   >32283,73</td>
+	<td align='right'   >1966072,70</td>
+	<td align='right'   >04.08.2017 20:39:22</td>
+</tr>
+
+<tr    onclick="document.location = 'wmquerysnew.asp?refID=26200929&deststamp=81'" title="Для перехода к просмотру нажмите левую кнопку мыши." >
+
+	<td align='center'   >26200930</td>
+	<td align='right'   >100</td>
+	<td align='right'   >6200</td>
+	<td align='right'   >0,0164</td>
+	<td align='right'   >60,8997&nbsp;&nbsp;(+0,25%)</td>
+	<td align='right'   >32283,73</td>
+	<td align='right'   >1966072,70</td>
+	<td align='right'   >04.08.2017 20:39:22</td>
+
+</tr>
+
+
+</TABLE>
+"""[1:-1]
+			elif urls['RUB,USD'] == lnk and mssrc == Config.MSSRC_HTML:
+				s = """
+<TABLE  class="bidsList" width=100% border="0" cellpadding="3" cellspacing="1">
+<tr align="center">
+ 
+<td title="" align='center'   >Номер <BR />заявки</td>
+<td title="" align='center'   >Есть сумма <BR />WMR</td>
+<td title="" align='center'   >Нужна сумма <BR />WMZ</td>
+<td title="" align='center'   >Прямой курс <BR />(WMR/WMZ)</td>
+<td title="" align='center'   >Обратный курс <BR />(WMZ/WMR)</td>
+<td title="" align='center'   >Всего сумма <BR />WMR (*)</td>
+<td title="" align='center'   >Всего сумма <BR />WMZ (*)</td>
+<td title="" align='center'   >Дата подачи</td>
+</tr>
+
+
+
+<tr    onclick="document.location = 'wmquerysnew.asp?refID=26200988&deststamp=101'" title="Для перехода к просмотру нажмите левую кнопку мыши." >
+
+	<td align='center'   >999</td>
+	<td align='right'   >7000</td>
+	<td align='right'   >800</td>
+	<td align='right'   >60,6294&nbsp;&nbsp;(-0,20%)</td>
+	<td align='right'   >0,0164</td>
+	<td align='right'   >197876,39</td>
+	<td align='right'   >3263,70</td>
+	<td align='right'   >04.08.2017 20:35:46</td>
+
+</tr>
+<tr    onclick="document.location = 'wmquerysnew.asp?refID=26200988&deststamp=101'" title="Для перехода к просмотру нажмите левую кнопку мыши." >
+
+	<td align='center'   >26200988</td>
+	<td align='right'   >6000</td>
+	<td align='right'   >100</td>
+	<td align='right'   >60,6294&nbsp;&nbsp;(-0,20%)</td>
+	<td align='right'   >0,0164</td>
+	<td align='right'   >197876,39</td>
+	<td align='right'   >3263,70</td>
+	<td align='right'   >04.08.2017 20:35:46</td>
+
+</tr>
+<tr    onclick="document.location = 'wmquerysnew.asp?refID=26200988&deststamp=101'" title="Для перехода к просмотру нажмите левую кнопку мыши." >
+
+	<td align='center'   >26200988</td>
+	<td align='right'   >5800</td>
+	<td align='right'   >100</td>
+	<td align='right'   >60,6294&nbsp;&nbsp;(-0,20%)</td>
+	<td align='right'   >0,0164</td>
+	<td align='right'   >197876,39</td>
+	<td align='right'   >3263,70</td>
+	<td align='right'   >04.08.2017 20:35:46</td>
+
+</tr>
+
+</TABLE>
+"""[1:-1]
+			elif urls['USD,RUB'] == lnk and mssrc == Config.MSSRC_XML:
+				s = """
+<?xml version="1.0"?><wm.exchanger.response>
+	<BankRate direction="RUR/USD" ratetype="0">57,7832</BankRate>
+	<WMExchnagerQuerys amountin="WMZ" amountout="WMR" inoutrate="WMZ/WMR" outinrate="WMR/WMZ">
+		<query id="1" amountin="200" amountout="12000" inoutrate="0,0168" outinrate="59,1746" procentbankrate="+2,41" allamountin="1,66" querydate="05.10.2017 22:20:22"></query>
+		<query id="666" amountin="150" amountout="3000" inoutrate="0,0168" outinrate="59,1746" procentbankrate="+2,41" allamountin="1,66" querydate="05.10.2017 22:20:22"></query>
+		<query id="3" amountin="100" amountout="6200" inoutrate="0,0168" outinrate="59,1746" procentbankrate="+2,41" allamountin="1,66" querydate="05.10.2017 22:20:22"></query>
+	</WMExchnagerQuerys>
+</wm.exchanger.response>
+"""[1:-1]
+			elif urls['RUB,USD'] == lnk and mssrc == Config.MSSRC_XML:
+				s = """
+<?xml version="1.0"?><wm.exchanger.response>
+	<BankRate direction="RUR/USD" ratetype="0">57,7832</BankRate>
+	<WMExchnagerQuerys amountin="WMR" amountout="WMZ" inoutrate="WMR/WMZ" outinrate="WMZ/WMR">
+		<query id="999" amountin="7000" amountout="800" inoutrate="0,0168" outinrate="59,1746" procentbankrate="+2,41" allamountin="1,66" querydate="05.10.2017 22:20:22"></query>
+		<query id="2" amountin="6000" amountout="100" inoutrate="0,0168" outinrate="59,1746" procentbankrate="+2,41" allamountin="1,66" querydate="05.10.2017 22:20:22"></query>
+		<query id="3" amountin="5800" amountout="100" inoutrate="0,0168" outinrate="59,1746" procentbankrate="+2,41" allamountin="1,66" querydate="05.10.2017 22:20:22"></query>
+	</WMExchnagerQuerys>
+</wm.exchanger.response>
+"""[1:-1]
+			else: raise Exception("unpredicted case")
+				
+			fp.write(s + "\n")
+
+		return 0
+
+wget = WgetTst2()
+
+for mssrc in [Config.MSSRC_HTML, Config.MSSRC_XML]:
+	Config.MARKETSTATE_SOURCE = mssrc
+	for st in [TRST_OPEN1, TRST_CLOSED1, TRST_OPEN2]:
+		if os.path.isfile(tstcommon.TST_DB_FILE):
+			os.unlink(tstcommon.TST_DB_FILE)
+		with TstCommon():
+
+			sb = SpecBot(
+				dbFile = tstcommon.TST_DB_FILE,
+				dbName = tstcommon.TST_DB_NAME,
+				currency1str = "USD",
+				currency2str = "RUB",
+				readOnly = False,
+				tmpDir = tstcommon.TST_TMP_DIR,
+				wget = wget,
+			)
+
+			t = Transaction(sb,
+				status = st,
+				wm_tid1 = '666',
+				wm_tid2 = '999',
+				curPair = sb.curPair,
+			)
+			t.save()
+
+			sb.updateMarketState()
+			ms = sb.marketState
+
+			p0 = MAX_PLACE_FOR_WEIGHING
+
+			w11 = 200 * (p0 - 0) / p0
+			w12 = 100 * (p0 - 1) / p0
+			w21 = (p0 - 0) / p0
+			w22 = (p0 - 1) / p0
+			dr1 = ms.avgRates['USD,RUB'] - (w11 * 60 + w12 * 62 ) / (w11 + w12)
+			dr2 = 1/ms.avgRates['RUB,USD'] - (w21 * 60 + w22 * 58 ) / (w21 + w22)
+
+			if abs(dr1) > 10e-6: raise Exception("average rate for emulated direct market state is wrong")
+			if abs(dr2) > 10e-6: raise Exception("average rate for emulated reverse market state is wrong")
+
+			sb.cleanup()

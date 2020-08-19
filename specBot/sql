@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# USAGE: sql [QUERY]
+# USAGE: sql < QUERY
+# USAGE: sql
+#
+# EXAMPLE: sql SELECT '*' FROM accounts
+
+set -u
+
+dbname=specBot.db
+sqlite="sqlite3 -header -column"
+
+if [ $# -eq 0 ]; then
+	$sqlite "$dbname"
+else
+	query="$@;"
+	echo "$query" | $sqlite "$dbname"
+fi

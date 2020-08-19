@@ -1,0 +1,49 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+from Wget import Wget
+import tstcommon
+from tstcommon import TstCommon
+from Date import Date
+import Config
+
+# check if wget is killed by specBot after on TIMEOUT
+
+oldTimeout = Config.WGET_TIMEOUT
+Config.WGET_TIMEOUT = 3
+
+wget = Wget(baseCmd=["cat"])
+d1 = Date("now")
+wget.run([])
+d2 = Date("now")
+
+dt = d1.minutesEarlier(d2) * 60
+if abs(dt - Config.WGET_TIMEOUT) > 0.05: raise Exception("timeout didn't work")
+
+Config.WGET_TIMEOUT = oldTimeout
+
+# check wget in a real download
+
+with TstCommon():
+	sb = SpecBot(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = Wget(),
+	)
+
+	fn = tstcommon.TST_TMP_DIR + "/.specBot_wget_test.html"
+	lnk = "https://mail.ru"
+
+	st = sb.wget.run(["--quiet", "-O", fn, lnk])
+
+	if st: raise Exception("wget exited with a non-zero exit status = %d" % st)
+
+	if not os.path.isfile(fn):
+		raise Exception("wget's exit status was 0 but no file was downloaded from the internet")

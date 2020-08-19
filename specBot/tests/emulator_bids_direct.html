@@ -1,0 +1,423 @@
+<!DOCTYPE HTML>
+<html lang="ru">
+<head>
+        
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+<title>Автоматический обмен WebMoney</title>
+<meta name="keywords" content="обмен WebMoney (WMZ, WMR, WME, WMU, WMB, WMG, WMX, WMK, WMV), p2p-обмен, bitcoin">
+<meta name="description" content="Сервис Exchanger предназначен для автоматического p2p-обмена титульных знаков WebMoney между участниками системы WebMoney Transfer">
+    
+    <LINK REL="SHORTCUT ICON" href="//www.webmoney.ru/favicon.ico">
+    
+    <link rel="stylesheet" href="/include/main.css" type="text/css" media="screen" />
+
+
+
+<!--[if !IE]>-->
+<script type="text/javascript" src="/include/jquery2.1.0.js"></script>
+<!--<![endif]-->
+
+<!--[if lt IE 9]>
+ <script type="text/javascript" src="/include/jquery1.6.0.js"></script>
+ <![endif]-->
+
+<!--[if gt IE 8]>
+<script type="text/javascript" src="/include/jquery2.1.0.js"></script>
+ <![endif]-->
+
+
+
+    <script type="text/javascript" src="/include/user_menu_new.js"></script>      
+    <script> 
+        $(document).ready(function () {
+            $('[rel="toggle-menu"]').click(function (e) {
+                e.stopPropagation();
+                var $this = $(this);
+                var $nohref = $this.children('a').eq(0);
+                $('[rel="toggle-menu"]').not($this).removeClass('submenu-opened');
+                $nohref.removeAttr('href');
+
+                if ($this.hasClass('submenu-opened')) {
+                    $this.removeClass('submenu-opened');
+                } else {
+                    $this.addClass('submenu-opened');
+                }
+            });
+        });
+    </script>
+     
+</head>
+<body>
+
+    <div class="wrapper">
+    <div class="header">
+    
+        <a class="wmlogo" href="http://webmoney.ru/"></a>
+        <a class="exchanerLogo" href="/asp/wmlist.asp"></a>
+        
+        <ul class="topMenu">
+        
+		<li><a href="http://www.webmoney.ru/" title="Переход на главный сайт Системы">Webmoney.ru</a></li>
+		<li><a href="http://www.exchanger.ru/asp/about.asp" title="Общее описание сервиса Exchanger.ru">О Exchanger.ru</a></li>
+		<li><a href="/asp/rules_wm.asp" title="Правила работы в секции wm.exchanger.ru">Правила</a></li>
+		<li><a href="/asp/default.asp" title="Статистика работы секции за последние 3 дня">Статистика</a></li>
+		<li><a href="/asp/rules_xml.asp" title="Интерфейсы автоматизации процессов секции">XML-интерфейсы</a></li>
+		<li><a id="contacthref" href="http://www.exchanger.ru/asp/contacts.asp" title="Контакты">Контакты</a></li>
+
+
+        </ul>
+
+    
+    
+        <div class="topIcons">
+            <a href="/asp/wmlist.asp" class="home_icon"></a>
+            <a href="mailto:exchanger@webmoney.ru" class="mail_icon"></a>
+        </div>
+    
+    
+    
+       <div class="langChooser"> 
+            <div rel="toggle-menu" class="header-lang lang-ru">
+                <i></i>
+                <span>ru</span>
+                <ul style="display:none;" class="header-lang-more">
+                    <li><a class="lang-ru" href="https://wm.exchanger.ru/asp/wmlist.asp?exchtype=1"><i></i>Русский</a></li>
+                    <li><a class="lang-en" href="https://wmeng.exchanger.ru/asp/wmlist.asp?exchtype=1"><i></i>English</a></li>
+
+                </ul>
+            </div>
+        </div>    
+        
+	
+	
+
+    </div>
+    
+    
+    
+    <div class="content">
+        <div class="leftColumn">	
+<NOSCRIPT><p>Включите скрипты в Вашем браузере, если они не включены.</p></NOSCRIPT>
+
+<form id=beforepay name=beforepay method="POST" action="wmlist.asp">
+
+
+
+
+<h1>Выберите направление обмена:</h1> 
+<BR />
+<TABLE width="100%" class="indexTopControls"><tr><td align="left" class="va_middle">
+Куплю 
+<SELECT width="20" style="width:70px;"  class="formfield2" name="exchtypein" id="exchtypein" size="1" onchange = "exchtypechange_new()">
+	<option value="Z" SELECTED  >WMZ
+	<option value="R"  >WMR
+	<option value="E"  >WME
+	<option value="U"  >WMU
+	<option value="B"  >WMB
+	<option value="X"  >WMX
+	<option value="H"  >WMH
+	<option value="K"  >WMK
+	<option value="G"  >WMG
+	<option value="V"  >WMV
+</select>
+<a class="replace_direction" title="Поменять направление обмена на обратное" href="/asp/wmlist.asp?exchtype=2"></a>
+Продам 
+<SELECT width="20" style="width:70px;"  class="formfield2" name="exchtypeout" id="exchtypeout" size="1" onchange = "exchtypechange_new()">
+	<option value="Z"  >WMZ
+	<option value="R" SELECTED  >WMR
+	<option value="E"  >WME
+	<option value="U"  >WMU
+	<option value="B"  >WMB
+	<option value="X"  >WMX
+	<option value="H"  >WMH
+	<option value="K"  >WMK
+	<option value="G"  >WMG
+	<option value="V"  >WMV
+</select>
+
+<div class="info">
+<span>
+Справочный курс (**) - <b>60,7503 <br /><i></i></b> &nbsp;&nbsp;&nbsp;
+Всего заявок &nbsp;346 &nbsp;на сумму &nbsp;1956900,92 &nbsp;WMZ
+</span>
+</div>
+</td><td align="right">
+<div>
+<span></span>
+<a title="Show monthly chart" id="showchartanchor1" href="JavaScript:showChart(1)">месяц</a>&nbsp;&nbsp;
+<a title="Show weekly chart" id="showchartanchor2" href="JavaScript:showChart(2)">неделя</a>&nbsp;&nbsp;
+<a title="Show daily chart" id="showchartanchor3" href="JavaScript:showChart(3)">день</a>&nbsp;&nbsp;
+<a title="Show hourly chart" id="showchartanchor4" href="JavaScript:showChart(4)">час</a>&nbsp;&nbsp;
+<a title="Hide current chart" id="hidechartanchor" href="JavaScript:hideChart()">скрыть</a>
+</div>
+</td></tr></table>
+
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+<script type="text/javascript">
+
+function hideChart(){
+
+	$("#container").hide();
+	document.getElementById("hidechartanchor").style.fontWeight="bold";
+	document.getElementById("showchartanchor1").style.fontWeight="lighter";
+	document.getElementById("showchartanchor2").style.fontWeight="lighter";
+	document.getElementById("showchartanchor3").style.fontWeight="lighter";
+	document.getElementById("showchartanchor4").style.fontWeight="lighter";
+
+}
+
+function showChart(grouptype){
+	
+	if (grouptype==1)
+		{
+		document.getElementById("hidechartanchor").style.fontWeight="lighter";
+		document.getElementById("showchartanchor1").style.fontWeight="bold";
+		document.getElementById("showchartanchor2").style.fontWeight="lighter";
+		document.getElementById("showchartanchor3").style.fontWeight="lighter";
+		document.getElementById("showchartanchor4").style.fontWeight="lighter";
+		}
+	else
+
+	if (grouptype==2)
+		{
+		document.getElementById("hidechartanchor").style.fontWeight="lighter";
+		document.getElementById("showchartanchor1").style.fontWeight="lighter";
+		document.getElementById("showchartanchor2").style.fontWeight="bold";
+		document.getElementById("showchartanchor3").style.fontWeight="lighter";
+		document.getElementById("showchartanchor4").style.fontWeight="lighter";
+		}
+	else
+	if (grouptype==3)
+		{
+		document.getElementById("hidechartanchor").style.fontWeight="lighter";
+		document.getElementById("showchartanchor1").style.fontWeight="lighter";
+		document.getElementById("showchartanchor2").style.fontWeight="lighter";
+		document.getElementById("showchartanchor3").style.fontWeight="bold";
+		document.getElementById("showchartanchor4").style.fontWeight="lighter";
+		}
+	else
+	if (grouptype==4)
+		{
+		document.getElementById("hidechartanchor").style.fontWeight="lighter";
+		document.getElementById("showchartanchor1").style.fontWeight="lighter";
+		document.getElementById("showchartanchor2").style.fontWeight="lighter";
+		document.getElementById("showchartanchor3").style.fontWeight="lighter";
+		document.getElementById("showchartanchor4").style.fontWeight="bold";
+		}
+	
+	$("#container").show();
+	$.getJSON('/asp/XMLQuerysStatsJSON.asp?exchtype=1&grouptype='+grouptype, function(data) {
+		// Create the chart
+		$('#container').highcharts('StockChart', {
+			
+
+			rangeSelector : {
+				selected : 1
+			},
+
+			title : {
+				text : 'WMZ-WMR rates'
+			},
+
+			xAxis : {
+				ordinal : false
+			},
+			credits: {
+		    		enabled: false
+			},
+
+			rangeSelector: {
+		                selected: 5
+			},
+			series : [{
+				name : 'WMZ-WMR',
+				data : data,
+				tooltip: {
+					valueDecimals: 2
+				}
+			}]
+		});
+	});
+
+};
+</script>
+
+<script src="/include/hs/highstock.js"></script>
+<script src="/include/hs/modules/exporting.js"></script>
+<div id="container" style="height: 500px; min-width: 500px;display:none;"></div>
+<script>
+ $(document).ready(function(){
+        hideChart();
+	});
+</script>
+
+
+
+
+<TABLE  class="bidsList" width=100% border="0" cellpadding="3" cellspacing="1">
+<tr align="center">
+ 
+<td title="" align='center'   >Номер <BR />заявки</td>
+<td title="" align='center'   >Есть сумма <BR />WMZ</td>
+<td title="" align='center'   >Нужна сумма <BR />WMR</td>
+<td title="" align='center'   >Прямой курс <BR />(WMZ/WMR)</td>
+<td title="" align='center'   >Обратный курс <BR />(WMR/WMZ)</td>
+<td title="" align='center'   >Всего сумма <BR />WMZ (*)</td>
+<td title="" align='center'   >Всего сумма <BR />WMR (*)</td>
+<td title="" align='center'   >Дата подачи</td>
+</tr>
+
+
+
+<tr    onclick="document.location = 'wmquerysnew.asp?refID=26200929&deststamp=81'" title="Для перехода к просмотру нажмите левую кнопку мыши." >
+
+	<td align='center'   >26200929</td>
+	<td align='right'   >200</td>
+	<td align='right'   >12000</td>
+	<td align='right'   >0,0164</td>
+	<td align='right'   >60,8997&nbsp;&nbsp;(+0,25%)</td>
+	<td align='right'   >32283,73</td>
+	<td align='right'   >1966072,70</td>
+	<td align='right'   >04.08.2017 20:39:22</td>
+
+</tr>
+
+<tr    onclick="document.location = 'wmquerysnew.asp?refID=26200929&deststamp=81'" title="Для перехода к просмотру нажмите левую кнопку мыши." >
+
+	<td align='center'   >26200930</td>
+	<td align='right'   >100</td>
+	<td align='right'   >6200</td>
+	<td align='right'   >0,0164</td>
+	<td align='right'   >60,8997&nbsp;&nbsp;(+0,25%)</td>
+	<td align='right'   >32283,73</td>
+	<td align='right'   >1966072,70</td>
+	<td align='right'   >04.08.2017 20:39:22</td>
+
+</tr>
+
+
+</TABLE>
+<BR />
+<p><a href="wmtransnew.asp">Поставить свою новую заявку на обмен WM -&gt; WM</a></p>
+<BR />
+<div class="info">
+<p>(*) в полях <b>Всего сумма</b>  - отображается имеющаяся и требуемая сумма всех заявок, сверху вниз до текущей заявки. Данная сумма показывает сколько всего средств Вы сможете гарантированно получить или продать (по курсу текущей заявки), если <a href="bigbuyerdesc.asp">массово скупите</a> все заявки вплоть до текущей.
+</p>
+</div>
+
+
+
+</form>
+<div class="info">
+(**) - Курсы <a target=_blank href="http://www.cbr.ru/">ЦБ РФ</a>, <a target=_blank href="http://www.bank.gov.ua/">НБУ</a>, <a targe=_blank href="http://www.nbrb.by/">НБРБ</a>, <a targe=_blank href="http://www.lbma.org.uk/">LBMA</a> и вычисляемые кросс-курсы между курсами перечисленных организаций по ряду направлений обмена.
+</div>
+<script language="JAVASCRIPT">
+  document.cookie="listexchtype=1; Expires=Fri, 31 Dec 2027 00:00:00 GMT;";
+</SCRIPT>
+
+        
+        
+        </div> <!-- end leftColumn -->
+        
+        <div class="rightColumn">
+        
+            <div class="rightModule">
+            
+            <a href="/asp/wmtransnew.asp" class="newOffer">
+                <span>Создать новую заявку</span><br />
+                <span>новая заявка на обмен по вашему курсу</span>
+            </a>
+            
+            
+            <a id="wmtransnewquickhref" href="/asp/wmtransnewquick.asp" class="quickExchange">
+                <span>Быстрый обмен</span><br />
+                <span>автоскупка встречных заявок</span>
+            </a>
+            
+            
+            </div>
+            
+            <div class="rightModule userOffersList">
+                <a href="/asp/wmlist.asp">Текущий список обмена WM <br /></a>
+                <a href="/asp/wmlist2.asp">Список своих новых заявок <br /></a>
+                <a href="/asp/wmlist3.asp">Список своих встречных заявок </a>
+            </div>
+            
+            <div class="rightModule serviceList">
+                <span class="rightTitle">Другие секции</span>
+                <ul>
+
+                    <li><a href="http://sdp.exchanger.ru">sdp.exchanger</a></li>						
+                    <li><a href="http://p2p.exchanger.ru">p2p.exchanger</a></li>
+                    <li><a href="http://wire.exchanger.ru">wire.exchanger</a></li>						
+                    <li><a href="http://cards.exchanger.ru/cards?utm_source=wm.exchanger.ru&utm_campaign=offers">cards.exchanger</a></li>
+                    <li><a href="https://exchanger.money/emoney">emoney.exchanger</a></li>						
+                    <li><a href="http://paypal.exchanger.ru">paypal.exchanger</a></li>
+                    <li><a href="https://wmx.wmtransfer.com/Home/TopUp?lang=ru-RU#">ввод вывод Bitcoin <img width="20" height="20" border="0" src="/images/btc2.png" alt="New" title="New"/></a></li>						
+                </ul>	
+            </div>
+            
+            <div class="rightModule infoList" align="center">
+		<div id="place19" data-role="banner" data-placeid="19"></div>
+            </div>
+
+		<div class="rightModule infoList">
+			<div id="wm-events-wrapper" style="height: 640px; overflow: hidden;">
+				<div id="wm-events-holder" class="ewm-widget-comments" data-guid="edac552c-0457-496b-9d2f-f1640dcd0da4" data-width="100%" data-lang="ru-RU"  data-design="1"></div>
+
+				<script type="text/javascript">
+				(function (w, d, id) {
+				w.ewmAsyncWidgets = function () { EWM.Widgets.init(); };
+				if (!d.getElementById(id)) {
+				var s = d.createElement('script'); s.id = id; s.async = true; s.src = '//events.webmoney.ru/js/ewm-api.js?12';
+				(d.getElementsByTagName('head')[0] || d.documentElement).appendChild(s);
+				}
+		                })(window, document, 'ewm-js-api');
+		            </script>
+			</div>
+            
+		</div>
+	</div>
+	</div>
+    
+    
+    
+    
+    
+    <div class="footer">
+        <ul class="footer-content">
+                <li class="footer-content-links">
+                    <p>
+                        <a href="http://www.exchanger.ru/asp/about.asp">О сервисе</a>
+                        <a href="/asp/default.asp">Статистика</a>
+                        <a href="http://www.exchanger.ru/asp/rules.asp">Правила</a>
+                        <a href="http://www.exchanger.ru/asp/contacts.asp">Контакты</a>
+                    </p>
+                    <p>По всем вопросам обращайтесь <a href="mailto:exchanger@webmoney.ru">exchanger@webmoney.ru</a><p>
+                </li>
+                <li class="footer-content-coprights">
+                    <p>Воспроизводимые на данном сайте торговые марки WEBMONEY и WEBMONEY TRANSFER используются держателями сайта с разрешения правообладателя.</p>
+                    <p>Copyright WebMoney &copy; 1998-2017.</p>
+                </li>
+        </ul>
+    </div>
+    
+    
+
+    </div>
+<script language="javascript" type="text/javascript">
+function _getElementById(id) 
+{
+  if (document.getElementById) return document.getElementById(id);
+  if (document.all) return document.all(id);
+  return null;
+}
+_getElementById('wmtransnewquickhref').href = '/asp/wmtransnewquick.asp?exchtype=2';
+</script>
+
+
+<!-- For correct work of advertising add the follow script in the bottom of page -->
+<script src="https://illicium.wmtransfer.com/scripts/public/illicium_0_1.js" async> </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+from Transaction import Transaction
+import Config
+import tstcommon
+from tstcommon import TstCommon
+from WgetTst import WgetTst
+from defs import *
+
+
+def testTrans1(t):
+	sb = t.specBot
+	ms = sb.marketState
+	ar1 = ms.avgRates[sb.curPair]
+
+	mrp = Config.MIN_REL_PROFIT
+	rsm = Config.RATE_SETTING_MODE
+
+	sb.setRate1(t)
+	r = t.rate1
+	t.status = TRST_OPEN1
+	rp = t.profit(relative=True)
+	if rsm == Config.RSM_SPREAD_AND_MIN_PROFIT:
+		if rp > Config.MIN_REL_PROFIT + 1e-10:
+			if abs(r - ar1) > 1e-10: raise Exception("setRate1() set the wrong rate (r=%.4f; ar1=%.4f)" % (r, ar1))
+		else:
+			if insideInterval(t.rate1, ar1*(1-Config.MAX_RATE_DEVIATION), ar1*(1 + Config.MAX_RATE_DEVIATION)) and \
+			abs(rp - mrp) > 1e-10:
+				raise Exception("setRate1() set the wrong rate (r=%.4f; ar1=%.4f)" % (r, ar1))
+		#
+		#
+	elif rsm in [Config.RSM_MIN_PROFIT, Config.RSM_SMART_MIN_PROFIT]:
+		if insideInterval(t.rate1, ar1*(1-Config.MAX_RATE_DEVIATION), ar1*(1 + Config.MAX_RATE_DEVIATION)):
+			if abs(rp - mrp) > 1e-10:
+				raise Exception("setRate1() set the wrong rate: rp={rp:.6f}; mrp={mrp:.6f}; rate1={r1:.4f}; ar1={ar1:.4f}".format(rp=rp, mrp=mrp, r1=t.rate1, ar1 = ar1))
+	else: raise Exception("unpredicted rsm=%d" % (rsm))
+
+
+def testTrans2(t):
+	sb = t.specBot
+	ms = sb.marketState
+	ar2 = ms.avgRates[sb.curPair.reverse()]
+
+	mrp = Config.MIN_REL_PROFIT
+	rsm = Config.RATE_SETTING_MODE
+
+	sb.setRate2(t)
+	r = t.rate2
+
+	if t.status == TRST_CLOSED1:
+		t.status = TRST_OPEN2
+		t.remainder2 -= t.getCommission2()
+
+	rp = t.profit(relative=True)
+	if rsm in [
+			Config.RSM_SPREAD_AND_MIN_PROFIT,
+			Config.RSM_SMART_MIN_PROFIT
+		]:
+
+		if rp > Config.MIN_REL_PROFIT + 1e-10:
+			if abs(r - ar2) > 1e-8: raise Exception("setRate2() set the wrong rate (r=%.4f; ar2=%.4f)" % (1/r, 1/ar2))
+		else:
+			if insideInterval(t.rate2, ar2*(1-Config.MAX_RATE_DEVIATION), ar2*(1 + Config.MAX_RATE_DEVIATION)) and \
+			abs(ar2 - t.rate2) > 1e-10 and \
+			abs(rp - mrp) > 1e-10:
+				raise Exception("setRate2() set the wrong rate (r=%.6f; ar2=%.6f; rp=%.6f; mrp=%.6f)" % (r, ar2, rp, mrp))
+		#
+		#
+	elif rsm == Config.RSM_MIN_PROFIT:
+		if insideInterval(t.rate2, ar2*(1-Config.MAX_RATE_DEVIATION), ar2*(1 + Config.MAX_RATE_DEVIATION)):
+			if abs(rp - Config.MIN_REL_PROFIT) > 1e-8:
+				raise Exception("setRate2() set the wrong rate: rp = %.6f; mrp=%.6f; t.rate2=%.6f" % (rp, mrp, 1/t.rate2))
+	else: raise Exception("unpredicted rsm=%d" % (rsm))
+
+
+def doTest():
+	with TstCommon():
+		sb = SpecBot(
+			dbFile = tstcommon.TST_DB_FILE,
+			dbName = tstcommon.TST_DB_NAME,
+			currency1str = "USD",
+			currency2str = "RUB",
+			readOnly = False,
+			tmpDir = tstcommon.TST_TMP_DIR,
+			wget = WgetTst(),
+		)
+		sb.updateMarketState()
+		ms = sb.marketState
+		ar1 = ms.avgRates[sb.curPair]
+		ar2 = ms.avgRates[sb.curPair.reverse()]
+
+		for mrp in [0.0005, 0.0010, 0.0020, 0.0100]:
+			Config.MIN_REL_PROFIT = mrp
+			for st in [TRST_UNDEF, TRST_OPEN1, TRST_CLOSED1, TRST_OPEN2]:
+				t = Transaction(sb,
+					status = st,
+					amount = 5000,
+					rate1 = ar1,
+					rate2 = ar2,
+					curPair = sb.curPair,
+				)
+
+				if st in [TRST_UNDEF, TRST_OPEN1]:
+					testTrans1(t)
+				else:
+					if st == TRST_CLOSED1:
+						t.remainder2 = t.remainder1 * t.rate1
+					elif st == TRST_OPEN2:
+						t.remainder2 = t.remainder1 * t.rate1 - t.getCommission2()
+					else: raise Exception("unpredicted transaction status %d" % st)
+					t.remainder1 = 0
+
+					testTrans2(t)
+
+
+for fmt in [Config.DBF_SQLITE3, Config.DBF_MARIADB]:
+	Config.DB_FORMAT = fmt
+	for rsm in [
+			Config.RSM_SPREAD_AND_MIN_PROFIT,
+			Config.RSM_MIN_PROFIT,
+			Config.RSM_SMART_MIN_PROFIT,
+	]:
+
+		Config.RATE_SETTING_MODE = rsm
+
+		for mssrc in range(len(Config.MSSRC)):
+			Config.MARKETSTATE_SOURCE = mssrc
+			doTest()

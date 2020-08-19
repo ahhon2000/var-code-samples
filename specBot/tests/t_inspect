@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+
+import subprocess
+import os
+
+os.chdir("..")
+st = subprocess.call("./inspect")
+
+if st: raise Exception("inspect failed")

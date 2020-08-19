@@ -1,0 +1,17 @@
+#!/usr/bin/python3
+
+from SpecBot import SpecBot
+import Config
+from Wget import Wget
+
+sb = SpecBot(
+	dbFile = Config.DB_FILE,
+	dbName = Config.DB_NAME,
+	currency1str = Config.CURRENCY1,
+	currency2str = Config.CURRENCY2,
+	readOnly = False,
+	tmpDir = Config._TMP_DIR,
+	wget = Wget(),
+)
+
+sb.run()

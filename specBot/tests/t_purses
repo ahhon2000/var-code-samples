@@ -1,0 +1,92 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+import Config
+import tstcommon
+from tstcommon import *
+import defs
+
+
+class SpecBotTst(SpecBot):
+	def sendEmail(self, subject, body, continueOnFailure=True):
+		pass
+
+
+specialPurseLetters = {
+	"USD": "Z",
+	"RUB": "R",
+}
+
+c1 = Config.CURRENCY1
+c2 = Config.CURRENCY2
+p1 = Config.PURSE1
+p2 = Config.PURSE2
+
+for (c, p) in [(c1, p1), (c2, p2)]:
+	if c in specialPurseLetters.keys():
+		ensure(specialPurseLetters[c] == p[0], "the purse doesn't match the currency")
+	else:
+		ensure(c[-1] == p[0], "the purse doesn't match the currency")
+
+# Check if we fail on non-matching currencies
+
+for (c1, c2, c1sb, c2sb, p1, p2) in [
+	("USD", "WMX", "USD", "WMH", "Z123", "X123"),
+	("USD", "WMX", "RUB", "WMX", "Z123", "X123"),
+	("USD", "WMX", "USD", "WMX", "Z123", "H123"),
+	("USD", "WMX", "USD", "WMX", "R123", "X123"),
+]:
+	with TstCommon():
+		Config.CURRENCY1 = c1
+		Config.CURRENCY2 = c2
+		Config.PURSE1 = p1
+		Config.PURSE2 = p2
+
+		sb = SpecBotTst(
+			dbFile = tstcommon.TST_DB_FILE,
+			dbName = tstcommon.TST_DB_NAME,
+			currency1str = c1sb,
+			currency2str = c2sb,
+			readOnly = False,
+			tmpDir = tstcommon.TST_TMP_DIR,
+			wget = WgetTst(),
+		)
+
+		failed = False
+		try:
+			sb.setPar("lastMarketstateDownloadDate", '')
+			sb.cycle()
+		except defs.NonMatchingCurPurseException:
+			failed = True
+		except Exception as e:
+			pass
+		if not failed: raise Exception("sb.cycle() did not fail on non-matching currencies")
+
+# check if we do not fail if the currencies are OK
+
+with TstCommon():
+	Config.CURRENCY1 = "USD"
+	Config.CURRENCY2 = "WMX"
+	Config.PURSE1 = "Z123"
+	Config.PURSE2 = "X123"
+
+	sb = SpecBotTst(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "WMX",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst(),
+	)
+
+	sb.setPar("lastMarketstateDownloadDate", '')
+	try:
+		sb.cycle()
+	except defs.NonMatchingCurPurseException:
+		raise Exception("something is wrong")
+	except Exception as e:
+		#print(e)
+		pass

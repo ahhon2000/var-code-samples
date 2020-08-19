@@ -1,0 +1,38 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+from tstcommon import *
+
+import tstcommon
+from tstcommon import TstCommon
+from WgetTst import WgetTst
+
+
+with TstCommon():
+	sb = SpecBot(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst(),
+	)
+
+	failed = True
+	try:
+		sb2 = SpecBot(
+			dbFile = tstcommon.TST_DB_FILE,
+			dbName = tstcommon.TST_DB_NAME,
+			currency1str = "USD",
+			currency2str = "RUB",
+			readOnly = False,
+			tmpDir = tstcommon.TST_TMP_DIR,
+			wget = WgetTst(),
+		)
+	except Exception as e:
+		failed = False
+	if failed: raise Exception("multiple instance protection doesn't work")

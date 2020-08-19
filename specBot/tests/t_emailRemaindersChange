@@ -1,0 +1,60 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+import subprocess
+
+from SpecBot import SpecBot
+from tstcommon import *
+from Date import Date
+from Transaction import Transaction
+import Config
+import tstcommon
+from tstcommon import TstCommon
+from WgetTst import WgetTst
+
+pf = Config.PASSWORD_FILE_SMTP 
+if pf[0] != '/':
+	Config.PASSWORD_FILE_SMTP = "../" + pf
+
+for mssrc in [Config.MSSRC_XML, Config.MSSRC_HTML]:
+	Config.MARKETSTATE_SOURCE = mssrc
+	with TstCommon():
+		sb = SpecBot(
+			dbFile = tstcommon.TST_DB_FILE,
+			dbName = tstcommon.TST_DB_NAME,
+			currency1str = "USD",
+			currency2str = "RUB",
+			readOnly = False,
+			tmpDir = tstcommon.TST_TMP_DIR,
+			wget = WgetTst(),
+		)
+		sb.updateMarketState()
+
+		am = 100
+		r1 = 60
+		t = Transaction(sb,
+			amount = am,
+			rate1 = r1,
+			curPair = sb.curPair,
+			wm_tid1 = 15,
+			wm_tid2 = 16,
+		)
+		oldRem1 = t.remainder1
+		oldRem2 = t.remainder2
+
+		(subj, body) = sb._emailRemaindersChange(t, oldRem1, oldRem2,
+			send=False, stdout=True)
+
+		if not(subj is None  and  body is None):
+			raise Exception("email to be sent on a zero change")
+
+		t.remainder1 -= 0.1 * am
+		t.remainder2 += 0.1 * am * r1
+
+		(subj, body) = sb._emailRemaindersChange(t, oldRem1, oldRem2,
+			send=False, stdout=True)
+
+		if subj is None  or  body is None:
+			raise Exception("_emailRemaindersChange() returned a tuple with a None")

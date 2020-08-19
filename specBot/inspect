@@ -1,0 +1,178 @@
+#!/usr/bin/python3
+
+import sys, os
+
+from SpecBot import SpecBot
+import Config
+from Date import Date
+import copy
+from defs import *
+from Wget import WgetDummy
+from MarketState import MarketState
+
+import argparse
+
+argp = argparse.ArgumentParser(
+	add_help=True
+)
+
+argp.add_argument('-a', '--all', action="store_true", help="show all transactions")
+argp.add_argument("argument", nargs='*')
+opt = argp.parse_args(sys.argv[1:])
+
+if Config.DB_FORMAT == Config.DBF_SQLITE3  and \
+	not os.path.isfile(Config.DB_FILE):
+
+	print("could not find the DB file `%s'" % Config.DB_FILE)
+	sys.exit(0)
+
+sb = SpecBot(
+	dbFile = Config.DB_FILE,
+	dbName = Config.DB_NAME,
+	currency1str = Config.CURRENCY1,
+	currency2str = Config.CURRENCY2,
+	tmpDir = Config._TMP_DIR,
+	wget = WgetDummy(),
+)
+
+lms = sb.loadLatestMarketState()
+
+ts = sb.getTransactions()
+
+# show only the last two transactions by default
+if not opt.all:
+	ts = ts[-2:]
+
+dn = None  # the server's "now"
+dlc = sb.getPar('lastCycleDate')
+if dlc:
+	dlc = Date(dlc)
+	dn = dlc
+elif lms:
+	dn = copy.copy(lms.date)
+else:
+	dn = Date("now")
+
+for t in ts:
+	ms1 = lms
+	ms2 = lms
+	if t.status in [TRST_CLOSED1, TRST_CLOSED2]:
+		rows = sb.execute("""
+			SELECT * FROM marketstates
+			WHERE date <= ?
+			ORDER BY date DESC LIMIT 1
+""", [t.date1closed.toText()])
+
+		for row in rows:
+			ms1 = MarketState(sb, row=row)
+			break
+
+	if t.status == TRST_CLOSED2:
+		rows = sb.execute("""
+			SELECT * FROM marketstates
+			WHERE date <= ?
+			ORDER BY date DESC LIMIT 1
+""", [t.date2closed.toText()])
+
+		for row in rows:
+			ms2 = MarketState(sb, row=row)
+			break
+	
+
+	p = t.profit()
+	pper = 100 * t.profit(relative=True)
+	comt = t.getTotalCommission(t.curPair[0])
+	comt_p = comt / t.amount * 100
+
+	p_wo_com = p + comt
+	p_wo_com_p =p_wo_com / t.amount * 100
+
+	d1t = t.date1.toNiceText() if t.date1 else "?"
+	d2t = t.date2.toNiceText() if t.date2 else "?"
+	d1ct = t.date1closed.toNiceText() if t.date1closed else "?"
+	d2ct = t.date2closed.toNiceText() if t.date2closed else "?"
+
+	place1 = ms1.getPlace(t.wm_tid1)
+	place2 = ms2.getPlace(t.wm_tid2)
+	newPlace1 = t.getPlace1(ms1)
+	newPlace2 = t.getPlace2(ms2)
+
+	place1str = ""
+	if place1: place1str = "#%d" % place1
+	if newPlace1: place1str += "->#%d" % newPlace1
+	if place1str: place1str = "(" + place1str + ")"
+
+	place2str = ""
+	if place2: place2str = "#%d" % place2
+	if newPlace2: place2str += "->#%d" % newPlace2
+	if place2str: place2str = "(" + place2str + ")"
+
+	dirHrs = ""
+	revHrs = ""
+	totHrs = "?"
+	if t.date1  and  t.date1closed:
+		dirHrs = "%.1f h" % t.date1.hoursEarlier(t.date1closed)
+	elif t.date1:
+		dirHrs = "%.1f h" % t.date1.hoursEarlier(dn)
+		
+	if t.date2  and  t.date2closed:
+		revHrs = "%.1f h" % t.date2.hoursEarlier(t.date2closed)
+	elif t.date2:
+		revHrs = "%.1f h" % t.date2.hoursEarlier(dn)
+
+	if t.date1 and t.date2closed:
+		totHrs = "%.1f h" % t.date1.hoursEarlier(t.date2closed)
+	elif t.date1:
+		totHrs = "%.1f h" % t.date1.hoursEarlier(dn)
+
+	rate1out = t.rate1
+	rate2out = t.rate2
+	if rate1out < 1  and  rate1out: rate1out = 1 / rate1out
+	if rate2out < 1  and  rate2out: rate2out = 1 / rate2out
+
+	s = """
+id: {ide}
+	wm_tid1 = {wm_tid1} {place1str}    wm_tid2 = {wm_tid2} {place2str}
+	Open/Closed Dir: {d1t:19s}  --  {d1ct:19s}    {dirHrs}
+	Open/Closed Rev: {d2t:19s}  --  {d2ct:19s}    {revHrs}
+	status = {trst} {trst_t:19s}                   Total Duration: {totHrs}
+	amount = {am:.2f}
+	remainder1 = {rem1:.2f}    remainder2 = {rem2:.2f}
+	rate1 = {rate1:.4f}    rate2 = {rate2:.4f}
+	profit = {p:.2f} ({pper:.2f}%)  profit_wo_com = {p_wo_com:.2f} ({p_wo_com_p:.2f}%)
+	com:  com1 = {com1:.2f}  com2 = {com2:.2f}  tot = {comt:.2f} ({comt_p:.2f}%)
+"""[1:-1].format(
+		wm_tid1 = t.wm_tid1 if t.wm_tid1 else "?",
+		wm_tid2 = t.wm_tid2 if t.wm_tid2 else "?",
+		ide = t.ide,
+		am = t.amount,
+		p = p,
+		pper = pper,
+		trst = t.status,
+		trst_t = "(" + TRST[t.status] + ")",
+		com1 = t.getCommission1(),
+		com2 = t.getCommission2(),
+		comt = comt,
+		comt_p = comt_p,
+		d1t = d1t,
+		d2t = d2t,
+		d1ct = d1ct,
+		d2ct = d2ct,
+		dirHrs = dirHrs,
+		revHrs = revHrs,
+		totHrs = totHrs,
+		p_wo_com = p_wo_com,
+		p_wo_com_p = p_wo_com_p,
+		rem1 = t.remainder1,
+		rem2 = t.remainder2,
+		rate1 = rate1out,
+		rate2 = rate2out,
+		place1str = place1str,
+		place2str = place2str,
+	)
+
+	print(s)
+
+if lms:
+	print("")
+	print(lms)

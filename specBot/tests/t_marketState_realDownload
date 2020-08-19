@@ -1,0 +1,46 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+import Wget
+import tstcommon
+from tstcommon import *
+import Config
+
+
+# Check if the real MarketState XML download works
+
+with TstCommon():
+	Config.MARKETSTATE_SOURCE = Config.MSSRC_XML
+	wget = Wget.Wget() # WARNING!!! real download!
+	wget.baseCmd += ["--quiet"]
+	sb = SpecBot(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = wget, # WARNING!!! real download!
+	)
+	sb.updateMarketState()
+	ms = sb.marketState
+	cp = sb.curPair
+	cpr = cp.reverse()
+	
+	ensure(ms, "the market state could not be determined using the XML method")
+	ar1 = ms.avgRates[cp]
+	ar2 = ms.avgRates[cpr]
+
+	ensure(ar1 > 0, "ar1 must be positive")
+	ensure(ar2 > 0, "ar2 must be positive")
+	ensure(ar1 > 1, "the direct average rate is <= 1: %.6f" % ar1)
+	ensure(ar2 < 1, "the reverse average rate is >= 1: %.6f" % ar2)
+
+	spread = abs(ar1 * ar2 - 1) 
+	ensure(spread < 0.1, "the ar1/ar2 spread is suspiciously large: %.2f%%" % (spread * 100))
+
+	print("\nThe downloaded marketstate:")
+	print(ms)

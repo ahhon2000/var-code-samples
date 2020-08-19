@@ -1,0 +1,88 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+from Transaction import Transaction
+from Config import *
+import Config
+from defs import *
+import tstcommon
+from tstcommon import TstCommon
+from WgetTst import WgetTst
+
+for mssrc in [Config.MSSRC_XML, Config.MSSRC_HTML]:
+	Config.MARKETSTATE_SOURCE = mssrc
+	with TstCommon():
+		sb = SpecBot(
+			dbFile = tstcommon.TST_DB_FILE,
+			dbName = tstcommon.TST_DB_NAME,
+			currency1str = "USD",
+			currency2str = "RUB",
+			readOnly = False,
+			tmpDir = tstcommon.TST_TMP_DIR,
+			wget = WgetTst(),
+		)
+
+		sb.setPar("lastMarketstateDownloadDate", "")
+		sb.updateMarketState()
+		ms = sb.marketState
+
+
+		for st in range(len(TRST)):
+			t = Transaction(sb,
+				status = st,
+				amount = 10000,
+				rate1 = 61,
+				rate2 = 1/60,
+				curPair = sb.curPair,
+			)
+
+			com1 = t.getCommission1()
+			com2 = t.getCommission2()
+
+			if abs(com1 - 50) > 0.005: raise Exception("incorrectly calculated commission1")
+			if abs(com2 - 1500) > 0.005: raise Exception("incorrectly calculated commission2")
+
+
+		t = Transaction(sb,
+			status = TRST_CLOSED2,
+			amount = 100,
+			rate1 = 61,
+			rate2 = 1/60,
+			curPair = sb.curPair,
+		)
+
+		com1 = t.getCommission1()
+		com2 = t.getCommission2()
+
+		com1t = 0.8
+		com2t = 48.03
+
+		if abs(com1 - com1t) > 0.005: raise Exception("incorrectly calculated commission1")
+		if abs(com2 - com2t) > 0.005: raise Exception("incorrectly calculated commission2: %f instead of %f" % (com2, com2t))
+
+
+		for st in range(len(TRST)):
+			for am in [1000, 100]:
+				r1 = 61
+				r2 = 1/60
+				t = Transaction(sb,
+					status = st,
+					amount = am,
+					rate1 = r1,
+					rate2 = r2,
+					curPair = sb.curPair,
+				)
+
+				com1 = t.getCommission1()
+				com2 = t.getCommission2()
+
+				com1t = t.amount / 1.008 * 0.008
+				com2t = (t.amount - com1t) * r1 / 1.008 * 0.008
+				if st == TRST_UNDEF:
+					com2t = (t.amount - com1t) * ms.avgRates[sb.curPair] / 1.008 * 0.008
+
+				if abs(com1 - com1t) > 0.01: raise Exception("incorrectly calculated commission1: %f instead of %f" % (com1, com1t))
+				if abs(com2 - com2t) > 0.01: raise Exception("incorrectly calculated commission2: %f instead of %f" % (com2, com2t))

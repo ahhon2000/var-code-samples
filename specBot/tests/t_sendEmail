@@ -1,0 +1,35 @@
+#!/usr/bin/python3
+
+import os, sys
+sys.path = [".", ".."] + [os.path.dirname(os.path.abspath(sys.argv[0]))] + sys.path
+
+from SpecBot import SpecBot
+from tstcommon import *
+from Date import Date
+import Config
+import tstcommon
+from tstcommon import TstCommon
+from WgetTst import WgetTst
+
+
+with TstCommon():
+	sb = SpecBot(
+		dbFile = tstcommon.TST_DB_FILE,
+		dbName = tstcommon.TST_DB_NAME,
+		currency1str = "USD",
+		currency2str = "RUB",
+		readOnly = False,
+		tmpDir = tstcommon.TST_TMP_DIR,
+		wget = WgetTst(),
+	)
+
+	pf = Config.PASSWORD_FILE_SMTP 
+	if pf[0] != '/':
+		Config.PASSWORD_FILE_SMTP = "../" + pf
+
+	dn = Date("now")
+	sb.sendEmail(
+		"Testing sendEmail() %s" % dn.toNiceText(),
+		"This is a test\n\nDate: %s" % dn.toNiceText(),
+		continueOnFailure = False,
+	)

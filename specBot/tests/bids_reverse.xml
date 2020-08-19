@@ -1,0 +1,9 @@
+<?xml version="1.0"?><wm.exchanger.response><BankRate direction="RUR/USD" ratetype="1">57,7832</BankRate>
+
+<WMExchnagerQuerys amountin="WMR" amountout="WMZ" inoutrate="WMR/WMZ" outinrate="WMZ/WMR">
+
+	<query id="26601051" amountin="6000" amountout="100" inoutrate="59,0651" outinrate="0,0169" procentbankrate="+2,22" allamountin="51140,38" querydate="05.10.2017 22:31:01"></query>
+	<query id="26601052" amountin="5800" amountout="100" inoutrate="59,0651" outinrate="0,0169" procentbankrate="+2,22" allamountin="51140,38" querydate="05.10.2017 22:31:01"></query>
+
+</WMExchnagerQuerys>
+</wm.exchanger.response>
