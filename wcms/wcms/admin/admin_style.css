@@ -1,0 +1,157 @@
+body {
+	padding: 0;
+	margin: 0;
+}
+
+ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+h1 {
+	font-size: 26px;
+	color: #076762;
+}
+
+h2 {
+	font-size: 16px;
+	color: #076762;
+	margin-left: 0;
+}
+
+.date_digit {
+}
+
+
+.admin_message, .admin_message_ok, .admin_message_err {
+	background: #F1E9D7;
+	border-color: #5D5D5D;
+	border-style: solid;
+	border-width: thin;
+	font-size: 12px;
+	margin-left: auto;
+	margin-right: auto;
+	padding: 15px 20px 15px 20px;
+	margin-top: 20px;
+	margin-bottom: 20px;
+	text-align: justify;
+	width: 500px;
+}
+
+.admin_message_ok {
+	color: #00BB00;
+}
+
+.admin_message_err {
+	color: #BB0000;
+}
+
+
+.admin_label {
+	background: #FBF6E7;
+	border: thin dashed #000;
+	font-size: 11px;
+	max-width: 300px;
+	padding: 10px 15px 10px 15px;
+	text-align: justify;
+}
+
+
+.main_menu {
+	font-size: 14px;
+	line-height: 1.5em;
+	list-style: disc inside;
+	margin-left: auto;
+	margin-right: auto;
+	margin-top: 20px;
+	margin-bottom: 20px;
+	text-align: left;
+
+	max-width: 230px;
+}
+
+.main_menu a, .main_menu a:visited, .main_menu a:hover {
+	text-decoration: underline;
+	color: #005;
+}
+
+.save_button {
+	color: #1A902A;
+	font-weight: bold;
+	height: 25px;
+	min-width: 150px;
+	padding: 0;
+}
+
+.text_field, .password_field, .combo_box,
+.select_list, .select_list_multiple {
+	min-width: 300px;
+}
+
+.admin_tiny_label {
+	display: inline;
+	font-size: 11px;
+}
+
+
+#wrapper {
+	background: #EEE;
+	padding: 0;
+	margin-left: auto;
+	margin-right: auto;
+	min-height: 1000px;
+	width: 1000px;
+
+	font-size: 14px;
+	text-align: center;
+}
+
+#panel_top {
+	border-bottom: thin solid;
+	padding: 10px 0 10px 0;
+	margin: 0 0 0 0;
+}
+
+#panel_bottom {
+	border-top: thin solid;
+	padding: 10px 0 10px 0;
+	margin: 50px 0 10px 0;
+}
+
+#ChooseAction {
+	line-height: 1.8em;
+}
+
+#panel_top li,
+#panel_bottom li {
+	display: inline;
+	margin-left: 30px;
+	margin-right: 30px;
+}
+
+#panel_top li a,
+#panel_top li a:visited,
+#panel_bottom li a,
+#panel_bottom li a:visited
+{
+	color: #3E7195;
+}
+
+#AddSection, #add_menu, #change_password {
+	margin-top: 30px;
+}
+
+#news_table {
+	margin-left: auto;
+	margin-right: auto;
+}
+
+#news_table a {
+	color: #005;
+	text-decoration: underline;
+}
+
+#news_table a.red_remove {
+	color: #C7275D;
+}
