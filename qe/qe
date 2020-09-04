@@ -19,6 +19,8 @@ SUSPENDED_FILE="lock.suspended"
 
 # flags
 forceFlag=""
+syslogErrors=1
+syslogWarnings=0
 
 
 print_usage(){
@@ -53,12 +55,19 @@ EOF
 
 
 error(){
+	if [ "$syslogErrors" -ne 0 ]; then
+		logger --priority local0.err "qe: $1"
+	fi
 	echo "error:" "$1" >&2
+	
 	exit 1
 }
 
 
 warning(){
+	if [ "$syslogWarnings" -ne 0 ]; then
+		logger --priority local0.warning "qe: $1"
+	fi
 	echo "warning:" "$1" >&2
 }
 
