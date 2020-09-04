@@ -1,0 +1,105 @@
+#!/bin/bash
+#
+# USAGE: for_each_object LIST_FILE COMMAND LOCK_FILE LOG_FILE FINISHED_FILE
+#
+# For each line l in file LIST_FILE execute command COMMAND passing l as argument
+
+
+cleanup(){
+	rm -f "$lockFile"
+}
+
+
+on_sigint(){
+	[ $cmd_pid -ge 0 ] && kill -s SIGTERM $cmd_pid
+	cleanup
+	exit 1
+}
+
+
+on_sigusr1(){
+	if [ $cmd_pid -ge 0 ]; then
+		if [ "$processorSuspended" ]; then
+			processorSuspended=""
+			kill -s SIGCONT $cmd_pid
+		else
+			processorSuspended="1"
+			kill -s SIGSTOP $cmd_pid
+		fi
+	fi
+	waitKilledBySig=1
+}
+
+
+error(){
+	echo "error: $1" >&2
+	exit 1
+}
+
+
+# remove the first line of file $1
+remove_first_line(){
+	# FIXME ed must NOT interpret $1 as a regex
+	ed "$1" 2>/dev/null << EOF
+1d
+w
+EOF
+}
+
+
+listFile="$1"
+cmd="$2"
+lockFile="$3"
+logFile="$4"
+finishedFile="$5"
+processorSuspended=""
+waitKilledBySig=""
+
+[ -e "$lockFile" ] && error "lock file $lockFile exists however it must not (this is due to a bug in the main queue script)"
+
+# create lock file
+echo $$ > "$lockFile" || error "can't create lock file $lockFile"
+
+[ -r "$listFile" ] || error "$listFile is not readable"
+[ -w "$listFile" ] || error "$listFile is not writable"
+
+trap on_sigint INT
+trap on_sigint TERM
+trap on_sigusr1 USR1
+
+cmd_pid=-1
+
+while read line < "$listFile"; do
+	($cmd "$line" 2>> "$logFile" >/dev/null)&
+	cmd_pid=$!
+	# If this shell receives a signal then wait builtin returns immediately
+	# after which the signal trap is executed.
+	#
+	# In order to wait until $cmd finishes the waitKilledBySig flag
+	# is used. Initially it is "". Each trap (except on_sigint or alike)
+	# when called switches it to 1. It is switched back to "" in the while
+	# loop below. When wait returns due to a signal we wait again.
+	while((1)); do
+		wait $cmd_pid
+		es=$?
+		if [ "$waitKilledBySig" ]; then
+			waitKilledBySig=""
+		else
+			break
+		fi
+	done
+	cmd_pid=-1
+
+	remove_first_line "$listFile"
+
+	if [ $es -eq 0 ]; then
+		d="`date '+%Y-%m-%d_%H:%M'`"
+		echo -e "$d\t$line" >> "$finishedFile"
+	else
+		echo "$line" >> "$listFile"
+	fi
+done
+
+cleanup
+
+exit 0

@@ -1,0 +1,526 @@
+#!/bin/bash
+
+VERSION="qe (QueuE) 0.0"
+
+QE_EXECUTABLE="$0"
+QE_DIR="$HOME/.qe"
+FOR_EACH_OBJECT="`dirname "$QE_EXECUTABLE"`/qe_for_each_object"
+
+QUEUES_LIST_FILE="$QE_DIR/queues_list"
+QUEUES_DIR="$QE_DIR/queues"
+
+RUN_DIR="run"
+PROCESSOR_FILE="processor"
+LOG_FILE="log"
+LOCK_FILE="lock"
+LIST_FILE="list"
+FINISHED_FILE="finished"
+SUSPENDED_FILE="lock.suspended"
+
+# flags
+forceFlag=""
+
+
+print_usage(){
+	fd=1
+	[ "$1" -ne 0 ] && fd=2
+	cat >&$fd << EOF
+Usage: $QE_EXECUTABLE [options]... [QUEUE [COMMAND]]
+    -c, --create QUEUE       Create queue QUEUE
+    -h, --help               Print help
+    -f, --force              Force to do something
+    -r, --remove QUEUE       Remove queue QUEUE
+    -V, --version            Print version
+COMMAND can be one of:
+    add                      Add an object to QUEUE
+    delete, del              Delete an object from QUEUE
+    clean                    Remove all objects from QUEUE
+    finished                 Print objects processed earlier
+    finished_clean           Remove finished objects file
+    log                      Print log file
+    log_clean                Remove log file
+    next, ne                 Move the first object to the end of QUEUE
+    previous, pre            Move the last object to the beginning of QUEUE
+    run                      Start QUEUE's processor
+    status, st               Show QUEUE's status
+    stop                     Stop QUEUE's processor
+    suspend, su              Suspend/resume QUEUE's processor
+    unlock                   Remove the lock files of QUEUE
+    [no COMMAND]             Show the objects in QUEUE
+EOF
+	exit "$1"
+}
+
+
+error(){
+	echo "error:" "$1" >&2
+	exit 1
+}
+
+
+warning(){
+	echo "warning:" "$1" >&2
+}
+
+
+# print name of $1 queue's log file
+get_log_file(){
+	echo "$QUEUES_DIR/$1/$LOG_FILE"
+}
+
+
+# print name of file with pid of $1 queue's processor
+get_lock_file(){
+	echo "$QUEUES_DIR/$1/$LOCK_FILE"
+}
+
+
+# print name of lock file that indicates suspended state for queue $1
+get_suspended_file(){
+	echo "$QUEUES_DIR/$1/$SUSPENDED_FILE"
+}
+
+
+# print name of file with objects of queue $1
+get_list_file(){
+	echo "$QUEUES_DIR/$1/$LIST_FILE"
+}
+
+
+# print name of file with command for processing queue $1
+get_processor_file(){
+	echo "$QUEUES_DIR/$1/$PROCESSOR_FILE"
+}
+
+
+get_finished_file(){
+	echo "$QUEUES_DIR/$1/$FINISHED_FILE"
+}
+
+
+# print name of $1 queue's directory
+get_queue_dir(){
+	echo "$QUEUES_DIR/$1"
+}
+
+
+# print name of directory where $1 queue's processor is started
+get_run_dir(){
+	echo "$QUEUES_DIR/$1/$RUN_DIR"
+}
+
+
+# return 0 iff $1 is on the list of queues
+queue_exists(){
+	ret=1
+	while read l; do
+		if [ "$1" = "$l" ]; then
+			ret=0
+			break
+		fi
+	done < "$QUEUES_LIST_FILE"
+
+	return $ret
+}
+
+
+# return 0 iff object $1 is in queue $2
+object_exists(){
+	obj="$1"
+	q="$2"
+	listFile="`get_list_file "$q"`"
+	ret=1
+
+	while read l; do
+		if [ "$obj" = "$l" ]; then
+			ret=0
+			break
+		fi
+	done < "$listFile"
+
+	return $ret
+}
+
+
+# print objects in queue $1
+queue_content(){
+	q="$1"
+	listFile="`get_list_file "$q"`"
+	[ -r "$listFile" ] || error "can't read file $listFile for $q"
+	if (cat "$listFile" | grep -l . >/dev/null); then
+		cat "$listFile"
+	fi
+}
+
+
+# print number of lines in file $1
+number_of_lines(){
+	n="`sed -n '$=' "$1"`"
+	[ -n "$n" ] || n=0
+	echo $n
+}
+
+
+# start processing queue
+queue_subcommand_run(){
+	[ -e "$lockFile" ] && error "$queue is already running"
+
+	curDir="`dirs -l`"
+	cd "$runDir"
+	[ -x "$FOR_EACH_OBJECT" ] || error "can't execute $FOR_EACH_OBJECT"
+	$FOR_EACH_OBJECT "$listFile" "$proc" "$lockFile" "$logFile" "$finishedFile" &
+	cd "$curDir"
+
+	rm -f "$suspFile"
+}
+
+
+# stop processing queue
+queue_subcommand_stop(){
+	[ -e "$lockFile" ] || error "$queue is NOT running, so can't stop"
+	pid="`cat "$lockFile"`"
+	[ -e "$suspFile" ] && kill -s SIGUSR1 $pid
+	kill -s SIGTERM $pid
+
+	# an ugly hack:
+	while [ -e "$lockFile" ]; do
+		true
+	done
+
+	rm -f "$suspFile"
+}
+
+
+# remove lock files for queue
+queue_subcommand_unlock(){
+	[ -e "$lockFile" ] || warning "$queue need not be unlocked"
+	rm -f "$lockFile"
+	rm -f "$suspFile"
+}
+
+
+# remove all objects from queue
+queue_subcommand_clean(){
+	> "$listFile"
+}
+
+
+# add to queue objects read in from stdin
+queue_subcommand_add(){
+	while read -e obj; do
+		if object_exists "$obj" "$queue"; then
+			warning "$obj was not added to $queue as it was already there"
+		else
+			echo "$obj" >> "$listFile"
+		fi
+	done
+}
+
+
+# delete from queue objects read in from stdin
+queue_subcommand_delete(){
+	while read -e obj; do
+		if ! object_exists "$obj" "$queue"; then
+			warning "$obj was NOT deleted from $queue as it wasn't there"
+		else
+			# FIXME ed must NOT interpret $obj as a regex
+			ed "$listFile" 2>/dev/null << EOF
+g#^$obj\$#d
+w
+EOF
+		fi
+	done
+}
+
+
+# print queue status on stdout
+queue_subcommand_status(){
+	if [ -e "$lockFile" -a -e "$suspFile" ]; then
+		status=suspended
+	elif [ -e "$lockFile" ]; then
+		status=running
+	elif [ -e "$suspFile" ]; then
+		status="inactive ($lockFile suspiciously indicates suspended status)"
+	else
+		status="inactive"
+	fi
+
+	len=`number_of_lines "$listFile"`
+	echo "processor: $proc"
+	echo "status: $status"
+	echo "length: $len"
+	if [ "$len" -ge 1 ]; then
+		first="`sed -n '1p' "$listFile"`"
+		last="`sed -n '\$p' "$listFile"`"
+		echo "first: $first"
+		echo "last: $last"
+	fi
+}
+
+
+# move the 1st object to the end of the queue
+queue_subcommand_next(){
+	if (grep -l . "$listFile" > /dev/null) ; then
+		if [ -e "$lockFile" ]; then
+			processorActive=1
+		else
+			processorActive=""
+		fi
+
+		[ "$processorActive" ] && queue_subcommand_stop
+
+		ed "$listFile" 2>/dev/null << EOF
+1m\$
+w
+EOF
+
+		[ "$processorActive" ] && queue_subcommand_run
+	else
+		warning "queue $queue is empty"
+	fi
+}
+
+
+# move the last object to the beginning of the queue
+queue_subcommand_previous(){
+	if (grep -l . "$listFile" > /dev/null) ; then
+		if [ -e "$lockFile" ]; then
+			processorActive=1
+		else
+			processorActive=""
+		fi
+
+		[ "$processorActive" ] && queue_subcommand_stop
+
+		ed "$listFile" 2>/dev/null << EOF
+\$m0
+w
+EOF
+
+		[ "$processorActive" ] && queue_subcommand_run
+	else
+		warning "queue $queue is empty"
+	fi
+}
+
+
+# suspend queue processor
+queue_subcommand_suspend(){
+	[ -e "$lockFile" ] || error "no process to send signal to; lock file $lockFile doesn't exist"
+	pid="`cat "$lockFile"`"
+	kill -s SIGUSR1 "$pid"
+	if [ -e "$suspFile" ]; then
+		rm -f "$suspFile"
+	else
+		> "$suspFile" || error "can't create lock file $suspFile"
+	fi
+}
+
+
+# print queue's log
+queue_subcommand_log(){
+	if [ -r "$logFile" ]; then
+		cat "$logFile"
+	fi
+}
+
+
+# print queue's finished objects
+queue_subcommand_finished(){
+	if [ -r "$finishedFile" ]; then
+		cat "$finishedFile"
+	fi
+}
+
+
+# remove queue's log file
+queue_subcommand_log_clean(){
+	rm -f "$logFile" || error "can't remove log file $logFile"
+}
+
+
+# remove queue's log file
+queue_subcommand_finished_clean(){
+	rm -f "$finishedFile" || error "can't remove file with finished objects $logFile"
+}
+
+
+# for $queue execute subcommand $cmd
+queue_subcommand(){
+	listFile="`get_list_file "$queue"`"
+	runDir="`get_run_dir "$queue"`"
+
+	logFile="`get_log_file "$queue"`"
+	lockFile="`get_lock_file "$queue"`"
+	suspFile="`get_suspended_file "$queue"`"
+	finishedFile="`get_finished_file "$queue"`"
+
+	procFile="`get_processor_file "$queue"`"
+	if [ -r "$procFile" ]; then
+		proc="`cat "$procFile"`"
+	fi
+
+	unknCmd=""	# true iff the command is unknown
+	case "$cmd" in
+		run | ru)
+			queue_subcommand_run
+		;;
+		stop)
+			queue_subcommand_stop
+		;;
+		unlock)
+			queue_subcommand_unlock
+		;;
+		clean)
+			queue_subcommand_clean
+		;;
+		log)
+			queue_subcommand_log
+		;;
+		log_clean)
+			queue_subcommand_log_clean
+		;;
+		finished | fi)
+			queue_subcommand_finished
+		;;
+		finished_clean)
+			queue_subcommand_finished_clean
+		;;
+		add)
+			queue_subcommand_add
+		;;
+		delete | del)
+			queue_subcommand_delete
+		;;
+		status | st)
+			queue_subcommand_status
+		;;
+		next | ne)
+			queue_subcommand_next
+		;;
+		previous | pre)
+			queue_subcommand_previous
+		;;
+		suspend | su)
+			queue_subcommand_suspend
+		;;
+		*)
+			unknCmd=1;
+		;;
+	esac
+
+	[ "$unknCmd" ] && error "unknown command $cmd; use -h to see the list of commands"
+}
+
+
+SHORTOPTS='c:fhr:V'
+LONGOPTS='create:,force,help,remove:,version'
+args=`getopt -l $LONGOPTS $SHORTOPTS "$@"` || print_usage 1 >&2
+
+eval set -- $args
+
+operation=NORMAL
+
+queue=""
+runDir=""
+listFile=""
+logFile=""
+lockFile=""
+suspFile=""
+procFile=""
+finishedFile=""
+proc=""
+cmd=""
+
+while [ "$1" '!=' -- ]; do
+	case "$1" in
+		--help | -h)
+			print_usage 0 >&1
+		;;
+		--create | -c)
+			shift
+			operation=CREATE
+			queue="$1"
+		;;
+		--force | -f)
+			forceFlag=1
+		;;
+		--remove | -r)
+			shift
+			operation=REMOVE
+			queue="$1"
+		;;
+		--version | -V)
+			echo "$VERSION"
+			exit 0
+		;;
+		?)
+			print_usage 1
+		;;
+	esac
+	shift
+done
+
+shift
+
+case "$operation" in
+	CREATE)
+		queue_exists "$queue" && error "queue $queue already exists"
+		runDir="`get_run_dir "$queue"`"
+		listFile="`get_list_file "$queue"`"
+		procFile="`get_processor_file "$queue"`"
+		qDir="`get_queue_dir "$queue"`"
+
+		[ -e "$QE_DIR" -a '!' -d "$QE_DIR" ] && error "$QE_DIR exists but is not a directory"
+		if [ '!' -e "$QE_DIR" ]; then
+			mkdir -p "$QE_DIR" || error "can't create $queue home directory $QE_DIR"
+		fi
+
+		mkdir -p "$qDir" || error "can't create directory $qDir"
+		mkdir -p "$runDir" || error "can't create $runDir for queue $queue"
+		if [ -e "$listFile" ]; then
+			warning "new queue $queue is not empty"
+		else
+			> "$listFile" || error "can't create $listFile"
+		fi
+		if [ -e "$procFile" -a '!' "$forceFlag" ]; then
+			error "$queue processor was defined earlier in $procFile; use -f to force the new one"
+		else
+			echo "Enter a command that will process queue $queue"
+			echo "Each queued object will be passed to it as arg1"
+			read -e proc
+			[ "$proc" ] || error "queue processor was NOT specified"
+			echo "$proc" > "$procFile" || error "can't write to $procFile"
+		fi
+
+		echo "$queue" >> "$QUEUES_LIST_FILE" || error "can't write to $QUEUES_LIST_FILE"
+	;;
+	REMOVE)
+		queue_exists "$queue" || error "queue $queue not found"
+		# FIXME ed must NOT interpret $queue as a regex
+		ed "$QUEUES_LIST_FILE" 2>/dev/null << EOF
+g#^$queue\$#d
+w
+EOF
+	;;
+	NORMAL)
+		[ $# -le 2 ] || print_usage 1
+		if [ $# -eq 0 ]; then
+			# qe command without queue argument
+			cat "$QUEUES_LIST_FILE" || error "can't read file with queues $QUEUES_LIST_FILE"
+		else
+			queue="$1"
+			queue_exists "$queue" || error "queue $queue not found"
+			if [ $# -eq 1 ]; then
+				# qe with queue argument, without subcommands
+				queue_content "$queue"
+			else
+				# qe with queue argument and subcommand
+				cmd="$2"
+				queue_subcommand
+			fi
+		fi
+	;;
+esac
+
+exit 0
